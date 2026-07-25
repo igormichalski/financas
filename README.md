@@ -186,9 +186,27 @@ Entre os dias 13 e 15 o bot lembra que a fatura vai fechar.
 GitHub. Já é privada, autenticada e versionada. Pra corrigir 20 categorias de uma vez
 isso é melhor que voz.
 
+## Cadência adaptativa
+
+O cron acorda de **30 em 30 min** (07h–00h). Mas se ao acordar ele encontrar movimento —
+mensagem nova ou fila pendente — o run **fica vivo checando de 3 em 3 minutos** em vez de
+dormir meia hora. Enquanto você está lançando, a resposta é rápida; parou de mexer por
+15 min, ele encerra e volta ao ritmo lento.
+
+Três freios pra isso não comer o orçamento de minutos:
+
+| Freio | Valor | Pra quê |
+|---|---|---|
+| `JANELA_ATIVA` | 15 min | quieto por esse tempo → encerra |
+| `TEMPO_MAX` | 25 min | teto duro por run |
+| `MAX_SEM_PROGRESSO` | 2 | fila que não anda → desiste e espera o cron |
+
+O último é o que importa numa indisponibilidade: sem ele, um Gemini fora do ar faria o run
+girar 25 minutos a cada meia hora. Com ele, tenta 2 vezes de perto e volta a dormir.
+
 ## Forçar um sync agora
 
-O cron roda de 30 em 30 min (07h–00h). Pra não esperar:
+Além da cadência acima, dá pra disparar na mão:
 
 ```bash
 ./rodar.sh          # processa e manda o painel

@@ -14,6 +14,15 @@ from datetime import date, datetime, timedelta
 # Espaçamento entre mensagens da fila, pra não estourar o limite por minuto do Gemini.
 PAUSA_ENTRE_ITENS = float(os.environ.get("PAUSA_ENTRE_ITENS", "4"))
 
+# Cadência adaptativa. O cron acorda de 30 em 30 min; se ao acordar encontrar
+# movimento (mensagem nova ou fila pendente), o run FICA VIVO checando de 3 em 3 min
+# em vez de dormir meia hora. Enquanto você está lançando, a resposta é rápida;
+# parou de mexer, ele encerra e volta ao ritmo lento.
+CICLO_RAPIDO = int(os.environ.get("CICLO_RAPIDO", "180"))      # 3 min entre checagens
+JANELA_ATIVA = int(os.environ.get("JANELA_ATIVA", "900"))      # 15 min quieto → encerra
+TEMPO_MAX = int(os.environ.get("TEMPO_MAX", "1500"))           # 25 min de teto por run
+MAX_SEM_PROGRESSO = int(os.environ.get("MAX_SEM_PROGRESSO", "2"))
+
 import dados as D
 import erros
 import extrator
@@ -654,53 +663,83 @@ def main():
 
     tg = Telegram(token, chat_id)
     state = D.ler_state()
-    sessao = Sessao(tg, api_key)
-    expirar_pendencias(sessao.pend)
 
-    fila, novos = coletar(tg, state)
-    parou = processar_fila(sessao, fila, state)
+    inicio = time.monotonic()
+    ultima_atividade = inicio
+    sem_progresso = 0
+    passada = 0
 
-    if sessao.mudou:
-        D.gravar_lancamentos(sessao.linhas)
+    while True:
+        passada += 1
+        sessao = Sessao(tg, api_key)
+        expirar_pendencias(sessao.pend)
 
-    state["ultimo_run"] = D.agora().isoformat(timespec="seconds")
-
-    saida = [r for r in sessao.respostas if r != "__RELATORIO__"]
-    pediu_painel = "__RELATORIO__" in sessao.respostas
-
-    if parou:
-        avisar_uma_vez(tg, state, parou)
+        fila, novos = coletar(tg, state)
+        antes = len(fila["pendentes"])
+        parou = processar_fila(sessao, fila, state)
         restam = len(fila["pendentes"])
-        if restam:
-            saida.append(f"📥 {restam} mensagem(ns) esperando na fila — não perdi nenhuma.")
-    else:
-        # Só faz sentido cobrar recorrente e revisar orçamento com a fila em dia.
-        saida += avisos(sessao, state)
-        rev = revisao_mensal(sessao, state, api_key)
-        if rev:
-            saida.append(rev)
 
-    D.gravar_fila(fila)
-    D.gravar_pendencias(sessao.pend)
-    D.gravar_state(state)
+        if sessao.mudou:
+            D.gravar_lancamentos(sessao.linhas)
+        state["ultimo_run"] = D.agora().isoformat(timespec="seconds")
 
-    if sessao.mudou or completo or pediu_painel:
-        try:
-            painel.gerar(sessao.linhas, sessao.orcamento)
-        except Exception:
-            traceback.print_exc()  # painel quebrado não pode invalidar o ledger
+        saida = [r for r in sessao.respostas if r != "__RELATORIO__"]
+        pediu_painel = "__RELATORIO__" in sessao.respostas
+        relatorio = completo and passada == 1  # o painel completo vai uma vez só
 
-    if sessao.novos or completo or pediu_painel:
-        saida.append(montar_resumo(sessao.linhas, sessao.orcamento, sessao.novos))
+        if parou:
+            avisar_uma_vez(tg, state, parou)
+            if restam:
+                saida.append(f"📥 {restam} mensagem(ns) esperando na fila — não perdi nenhuma.")
+        else:
+            # Só faz sentido cobrar recorrente e revisar orçamento com a fila em dia.
+            saida += avisos(sessao, state)
+            rev = revisao_mensal(sessao, state, api_key)
+            if rev:
+                saida.append(rev)
 
-    # Silêncio quando não houve nada: um bot que fala 34 vezes por dia você silencia.
-    if saida:
-        tg.enviar("\n".join(saida))
-    if completo or pediu_painel:
-        tg.documento(painel.SAIDA, "📊 Painel atualizado")
+        D.gravar_fila(fila)
+        D.gravar_pendencias(sessao.pend)
+        D.gravar_state(state)
 
-    print(f"novos={novos} fila={len(fila['pendentes'])} lancados={len(sessao.novos)} "
-          f"offset={state['offset']} parou={parou}")
+        if sessao.mudou or relatorio or pediu_painel:
+            try:
+                painel.gerar(sessao.linhas, sessao.orcamento)
+            except Exception:
+                traceback.print_exc()  # painel quebrado não pode invalidar o ledger
+
+        if sessao.novos or relatorio or pediu_painel:
+            saida.append(montar_resumo(sessao.linhas, sessao.orcamento, sessao.novos))
+
+        # Silêncio quando não houve nada: um bot que fala 34 vezes por dia você silencia.
+        if saida:
+            tg.enviar("\n".join(saida))
+        if relatorio or pediu_painel:
+            tg.documento(painel.SAIDA, "📊 Painel atualizado")
+
+        print(f"passada={passada} novos={novos} fila={restam} "
+              f"lancados={len(sessao.novos)} offset={state['offset']} parou={parou}")
+
+        if not CICLO_RAPIDO:
+            break
+
+        agora = time.monotonic()
+        if novos or sessao.novos:
+            ultima_atividade = agora
+        # Fila que não encolhe e sem mensagem nova = não adianta insistir de perto.
+        sem_progresso = 0 if (novos or restam < antes) else sem_progresso + 1
+
+        if not (novos or restam):
+            break  # nada acontecendo: volta pro ritmo de 30 min
+        if sem_progresso >= MAX_SEM_PROGRESSO:
+            break  # provável indisponibilidade: o próximo ciclo tenta de novo
+        if agora - ultima_atividade > JANELA_ATIVA:
+            break  # você parou de lançar
+        if agora - inicio + CICLO_RAPIDO > TEMPO_MAX:
+            break  # teto duro, pra não comer o orçamento de minutos
+
+        time.sleep(CICLO_RAPIDO)
+
     return 0
 
 

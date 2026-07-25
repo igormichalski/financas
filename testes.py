@@ -50,7 +50,8 @@ def sandbox():
 
 
 class FakeTelegram:
-    def __init__(self):
+    def __init__(self, chat_id="-1"):
+        self.chat_id = str(chat_id)
         self.enviadas = []
         self.docs = []
 
@@ -571,6 +572,79 @@ def teste_erros(S):
             os.environ[k] = v
 
 
+def teste_cadencia(S):
+    print("\n⏱  Cadência adaptativa (3 min com movimento, 30 min parado)")
+    import sync
+
+    guardado = {k: os.environ.get(k) for k in ("CICLO_RAPIDO", "JANELA_ATIVA", "TEMPO_MAX")}
+    sync.CICLO_RAPIDO = 0.01
+    sync.JANELA_ATIVA = 999
+    sync.TEMPO_MAX = 999
+    sync.MAX_SEM_PROGRESSO = 2
+
+    RESPOSTAS.clear()
+    RESPOSTAS["ok"] = {"transcricao": "35 no almoço", "intencao": "gasto",
+                       "precisa_perguntar": False,
+                       "lancamentos": [lanc(35, "Restaurantes/Lanches", descricao="almoço")]}
+
+    class TgRoteiro(FakeTelegram):
+        """Entrega mensagens em levas, uma leva por passada."""
+
+        def __init__(self, levas):
+            super().__init__()
+            self.levas = list(levas)
+            self.passadas = 0
+
+        def updates(self, offset):
+            self.passadas += 1
+            leva = self.levas.pop(0) if self.levas else []
+            return [{"update_id": 1000 + self.passadas * 10 + i, "message": m}
+                    for i, m in enumerate(leva)]
+
+    def roda(levas):
+        tg = TgRoteiro(levas)
+        D.gravar_fila({"pendentes": []})
+        D.gravar_state({"offset": 0, "avisos": {}, "erros": {}})
+        os.environ.update({"TELEGRAM_TOKEN": "x", "TELEGRAM_CHAT_ID": "-1",
+                           "GEMINI_API_KEY": "x"})
+        original = sync.Telegram
+        sync.Telegram = lambda *a, **k: tg
+        try:
+            sync.main()
+        finally:
+            sync.Telegram = original
+        return tg
+
+    tg = roda([[]])
+    checa("sem mensagem nenhuma, encerra na primeira passada",
+          tg.passadas == 1, f"{tg.passadas} passadas")
+
+    tg = roda([[msg("ok", 1)], [msg("ok", 2)], []])
+    checa("com movimento, continua checando",
+          tg.passadas == 3, f"{tg.passadas} passadas")
+    checa("encerra assim que o movimento para", tg.passadas == 3)
+
+    # Fila travada que não anda: desiste depois de MAX_SEM_PROGRESSO e espera o cron.
+    import erros
+    import extrator
+    original_ex = extrator.extrair
+
+    def sempre_cai(api_key, **kw):
+        raise erros.ErroTemporario("fora do ar", "🟡 fora", chave="gemini-instavel")
+
+    extrator.extrair = sempre_cai
+    tg = roda([[msg("ok", 1)], [], [], [], []])
+    extrator.extrair = original_ex
+    checa("fila travada não fica girando à toa",
+          tg.passadas <= 1 + sync.MAX_SEM_PROGRESSO + 1, f"{tg.passadas} passadas")
+    checa("e a mensagem continua guardada", len(D.ler_fila()["pendentes"]) == 1)
+
+    sync.CICLO_RAPIDO = 180
+    for k, v in guardado.items():
+        if v is None:
+            os.environ.pop(k, None)
+
+
 def teste_arquivos_robustos():
     print("\n💾 Arquivos e escrita")
     base = os.path.dirname(D.LANCAMENTOS)
@@ -661,6 +735,7 @@ def main():
         teste_ifood()
         teste_painel()
         teste_erros(S)
+        teste_cadencia(S)
         teste_arquivos_robustos()
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

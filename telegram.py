@@ -69,13 +69,22 @@ class Telegram:
                 chave="audio-grande",
             )
         url = ARQ.format(token=self.token, caminho=info["file_path"])
-        try:
-            with urllib.request.urlopen(url, timeout=120) as r:
-                return r.read()
-        except urllib.error.HTTPError as e:
-            raise erros.classificar_telegram("download", e.code, e.read().decode()[:300])
-        except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError) as e:
-            raise erros.erro_rede("Telegram", str(e))
+        ultimo = None
+        for tentativa in range(3):
+            try:
+                with urllib.request.urlopen(url, timeout=120) as r:
+                    return r.read()
+            except urllib.error.HTTPError as e:
+                ultimo = erros.classificar_telegram("download", e.code, e.read().decode()[:300])
+                if isinstance(ultimo, erros.ErroPermanente):
+                    break
+            except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError) as e:
+                # Baixar áudio é o passo mais frágil do caminho todo: uma falha de rede
+                # aqui travava a fila inteira até o próximo ciclo.
+                ultimo = erros.erro_rede("Telegram", str(e))
+            if tentativa < 2:
+                time.sleep(2 ** tentativa)
+        raise ultimo
 
     # ---------------------------------------------------------- saída
 
