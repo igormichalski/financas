@@ -281,15 +281,47 @@ def ciclo_aberto(semanas=None):
     return ciclos[-1] if ciclos else None
 
 
-def abrir_ciclo(valor: float, inicio: str | None = None) -> dict:
-    """Nova semana da conta B. O teto é o que ele mandou de fato, não os 350 teóricos."""
+def abrir_ciclo(valor: float, inicio: str | None = None,
+                linhas: list[dict] | None = None, janela: int = 7) -> dict:
+    """Nova semana da conta B. O teto é o que ele mandou de fato, não os 350 teóricos.
+
+    `desde` é de onde a contagem começa, e nem sempre é igual a `inicio`. Quando não
+    existe ciclo anterior, gastos de conta B lançados nos últimos `janela` dias ficariam
+    órfãos — registrados, mas descontando de teto nenhum. Aí a contagem recua até o
+    primeiro deles. É o caso de gastar no mercado na segunda e só avisar na quarta que
+    o dinheiro chegou.
+
+    Com ciclo anterior aberto isso não acontece: o que veio no meio já foi descontado
+    do teto antigo, que é o certo.
+    """
+    inicio = inicio or hoje().isoformat()
+    linhas = linhas or []
     semanas = ler_semanas()
+    ciclos = semanas.setdefault("ciclos", [])
+
+    # A fronteira é por ORDEM DE LANÇAMENTO, não por data. Data tem granularidade de
+    # dia: gastar de manhã e o pai mandar à noite faria o mesmo gasto contar na semana
+    # velha e na nova. O id resolve isso sem ambiguidade.
+    corte = max((int(l["id"]) for l in linhas if str(l["id"]).isdigit()), default=0)
+
+    desde, orfaos = inicio, []
+    if not ciclos:
+        limite = (date.fromisoformat(inicio) - timedelta(days=janela)).isoformat()
+        orfaos = [l for l in linhas
+                  if l["conta"] == "B" and l["tipo"] == "gasto" and l["data"] >= limite]
+        if orfaos:
+            desde = min(l["data"] for l in orfaos)
+            corte = min(int(l["id"]) for l in orfaos) - 1
+
     ciclo = {
-        "inicio": inicio or hoje().isoformat(),
+        "inicio": inicio,
+        "desde": desde,
+        "desde_id": corte,
         "recebido": round(float(valor), 2),
         "teto": round(float(valor), 2),
+        "absorvido": round(sum(l["valor"] for l in orfaos), 2),
     }
-    semanas.setdefault("ciclos", []).append(ciclo)
+    ciclos.append(ciclo)
     gravar_semanas(semanas)
     return ciclo
 
@@ -297,10 +329,14 @@ def abrir_ciclo(valor: float, inicio: str | None = None) -> dict:
 def gasto_no_ciclo(linhas: list[dict], ciclo: dict) -> float:
     if not ciclo:
         return 0.0
-    return sum(
-        l["valor"] for l in linhas
-        if l["conta"] == "B" and l["tipo"] == "gasto" and l["data"] >= ciclo["inicio"]
-    )
+    if "desde_id" in ciclo:
+        corte = ciclo["desde_id"]
+        return sum(l["valor"] for l in linhas
+                   if l["conta"] == "B" and l["tipo"] == "gasto"
+                   and str(l["id"]).isdigit() and int(l["id"]) > corte)
+    desde = ciclo.get("desde") or ciclo["inicio"]  # ciclos antigos, sem id
+    return sum(l["valor"] for l in linhas
+               if l["conta"] == "B" and l["tipo"] == "gasto" and l["data"] >= desde)
 
 
 # ---------------------------------------------------------------- agregações

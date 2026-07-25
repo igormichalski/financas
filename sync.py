@@ -236,10 +236,14 @@ class Sessao:
 
         # Receita na conta B abre uma semana nova, com o teto igual ao que ele mandou.
         if l["tipo"] == "receita" and l["conta"] == "B":
-            D.abrir_ciclo(l["valor"], l["data"])
-            self.respostas.append(
-                f"👨 Semana nova aberta com {D.brl(l['valor'])} — é esse o teto até a próxima."
-            )
+            ciclo = D.abrir_ciclo(l["valor"], l["data"], self.linhas)
+            aviso = (f"👨 Semana nova aberta com {D.brl(l['valor'])} — "
+                     f"é esse o teto até a próxima.")
+            if ciclo.get("absorvido"):
+                d = ciclo["desde"]
+                aviso += (f"\n   Puxei {D.brl(ciclo['absorvido'])} que você já tinha lançado "
+                          f"desde {d[8:10]}/{d[5:7]} e ainda não descontava de nada.")
+            self.respostas.append(aviso)
         return l
 
     # ------------------------------------------------------------ intenções

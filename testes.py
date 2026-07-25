@@ -214,6 +214,79 @@ def teste_ciclo_semanal(S):
           D.ciclo_aberto()["teto"] == 300.0)
 
 
+def teste_absorcao(S):
+    print("\n🧲 Gasto lançado antes de anunciar a entrada")
+    import sync
+    from datetime import timedelta
+
+    D.gravar_semanas({"ciclos": []})
+    hoje = D.hoje()
+    ontem = (hoje - timedelta(days=2)).isoformat()
+    velho = (hoje - timedelta(days=20)).isoformat()
+
+    RESPOSTAS.clear()
+    RESPOSTAS.update({
+        "antes": {"transcricao": "60 no mercado", "intencao": "gasto",
+                  "precisa_perguntar": False,
+                  "lancamentos": [lanc(60, "Mercado/Supermercado", data=ontem,
+                                       descricao="mercado antes")]},
+        "antigo": {"transcricao": "500 no mercado mês passado", "intencao": "gasto",
+                   "precisa_perguntar": False,
+                   "lancamentos": [lanc(500, "Mercado/Supermercado", data=velho,
+                                        descricao="mercado antigo")]},
+        "pai": {"transcricao": "meu pai mandou 350", "intencao": "receita",
+                "precisa_perguntar": False,
+                "lancamentos": [lanc(350, "Outros", "B", "dito", "receita",
+                                     descricao="ajuda do pai")]},
+        "depois": {"transcricao": "100 no mercado", "intencao": "gasto",
+                   "precisa_perguntar": False,
+                   "lancamentos": [lanc(100, "Mercado/Supermercado", descricao="mercado depois")]},
+    })
+
+    s = S()
+    s.processar(msg("antigo", 1))
+    s.processar(msg("antes", 2))
+    checa("sem ciclo aberto, gasto de conta B fica sem teto",
+          sync.contexto_semana(s.linhas) is None)
+
+    s.processar(msg("pai", 3))
+    sem = sync.contexto_semana(s.linhas)
+    checa("abrir a semana puxa o gasto órfão dos últimos dias",
+          sem["gasto"] == 60.0, f"contou {sem['gasto']}")
+    checa("resta o teto menos o que foi absorvido",
+          sem["resta"] == 290.0, f"{sem['resta']}")
+    checa("gasto de 20 dias atrás NÃO é puxado (fora da janela de 7 dias)",
+          sem["gasto"] == 60.0)
+    checa("o bot avisa que puxou", any("Puxei" in r for r in s.respostas),
+          str(s.respostas[-1:]))
+
+    s.processar(msg("depois", 4))
+    sem = sync.contexto_semana(s.linhas)
+    checa("gasto depois da entrada soma normalmente", sem["gasto"] == 160.0, f"{sem['gasto']}")
+
+    # Com ciclo já aberto não há órfão: o que veio no meio já descontou do teto antigo.
+    ciclos_antes = len(D.ler_semanas()["ciclos"])
+    RESPOSTAS["pai2"] = {"transcricao": "meu pai mandou 300", "intencao": "receita",
+                         "precisa_perguntar": False,
+                         "lancamentos": [lanc(300, "Outros", "B", "dito", "receita",
+                                              descricao="ajuda do pai")]}
+    s.processar(msg("pai2", 5))
+    novo = D.ciclo_aberto()
+    checa("semana seguinte não reabsorve o que já foi contado",
+          novo["absorvido"] == 0 and novo["desde"] == novo["inicio"]
+          and len(D.ler_semanas()["ciclos"]) == ciclos_antes + 1)
+    checa("semana nova nasce zerada mesmo com gasto do mesmo dia na anterior",
+          D.gasto_no_ciclo(s.linhas, novo) == 0.0,
+          f"contou {D.gasto_no_ciclo(s.linhas, novo)} — gasto do dia vazou pra semana nova")
+
+    RESPOSTAS["hoje"] = {"transcricao": "70 no mercado", "intencao": "gasto",
+                         "precisa_perguntar": False,
+                         "lancamentos": [lanc(70, "Mercado/Supermercado", descricao="pos virada")]}
+    s.processar(msg("hoje", 6))
+    checa("gasto depois da virada conta na semana nova",
+          D.gasto_no_ciclo(s.linhas, D.ciclo_aberto()) == 70.0)
+
+
 def teste_isolamento(S):
     print("\n🚧 Isolamento entre as carteiras")
     import sync
@@ -560,6 +633,7 @@ def main():
         teste_roteamento(S)
         teste_pergunta_resolve(S)
         teste_ciclo_semanal(S)
+        teste_absorcao(S)
         teste_isolamento(S)
         teste_intencoes(S)
         teste_idempotencia(S)
