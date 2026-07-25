@@ -281,11 +281,13 @@ def _post(corpo: dict, api_key: str, schema: dict, tentativas=3) -> dict:
         except erros.ErroSistema as e:
             ultimo = e
 
-        # Cota estourada não melhora em 2 segundos; instabilidade melhora.
-        if isinstance(ultimo, erros.ErroPermanente) or ultimo.chave == "gemini-cota" \
-                or tentativa == tentativas - 1:
+        if isinstance(ultimo, erros.ErroPermanente) or tentativa == tentativas - 1:
             break
-        time.sleep(2 ** tentativa)
+        # Cota diária só volta amanhã: insistir aqui é queimar minuto do Actions à toa.
+        if ultimo.chave == "gemini-cota-dia":
+            break
+        # Limite por minuto passa sozinho em segundos — vale esperar de verdade.
+        time.sleep(ultimo.esperar if ultimo.chave == "gemini-rpm" else 2 ** tentativa)
     raise ultimo
 
 

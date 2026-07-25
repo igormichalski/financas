@@ -34,19 +34,24 @@ def classificar_gemini(codigo: int, corpo: str) -> ErroSistema:
     c = (corpo or "").lower()
 
     if codigo == 429:
-        if "quota" in c or "resource_exhausted" in c or "exceeded" in c:
+        # Os dois 429 do Gemini são bem diferentes: o por minuto passa sozinho em
+        # segundos; o por dia só volta amanhã. Tratar igual seria ou esperar demais
+        # ou insistir à toa.
+        if "perday" in c.replace(" ", "") or "per day" in c or "requests per day" in c:
             return ErroTemporario(
-                f"cota do Gemini esgotada ({codigo})",
-                "🟡 <b>Cota do Gemini esgotada por enquanto.</b>\n"
-                "Suas mensagens estão guardadas na fila — nada se perdeu. Vou tentar de novo "
-                "sozinho no próximo ciclo (até 30 min).\n"
-                "<i>Se isso virar rotina, o free tier está apertado pro seu uso.</i>",
-                chave="gemini-cota", esperar=60,
+                f"cota diária do Gemini esgotada ({codigo})",
+                "🟡 <b>Cota diária do Gemini acabou.</b>\n"
+                "Suas mensagens estão guardadas na fila — <b>nada se perdeu</b>, nem o que passar "
+                "das 24h do Telegram. Volto a processar quando a cota virar (meia-noite no "
+                "horário do Pacífico).\n"
+                "<i>Se isso virar rotina, o free tier ficou apertado pro seu uso.</i>",
+                chave="gemini-cota-dia", esperar=3600,
             )
         return ErroTemporario(
-            f"limite de requisições do Gemini ({codigo})",
-            "🟡 Muitas requisições seguidas ao Gemini. Guardei tudo na fila e tento daqui a pouco.",
-            chave="gemini-rate", esperar=30,
+            f"limite por minuto do Gemini ({codigo})",
+            "🟡 Mandei requisições rápido demais pro Gemini. Guardei tudo na fila e retomo "
+            "em instantes — nada se perdeu.",
+            chave="gemini-rpm", esperar=30,
         )
 
     if codigo in (401, 403) or "api_key_invalid" in c or "api key not valid" in c:

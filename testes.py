@@ -60,7 +60,7 @@ class FakeTelegram:
     def documento(self, caminho, legenda=""):
         self.docs.append(caminho)
 
-    def baixar(self, file_id):
+    def baixar(self, file_id, limite=0):
         return b"audio-falso"
 
     def updates(self, offset):
@@ -382,8 +382,10 @@ def teste_erros(S):
 
     # --- classificação ---
     casos = [
-        ("cota do Gemini", erros.classificar_gemini(429, '{"error":{"status":"RESOURCE_EXHAUSTED"}}'),
-         erros.ErroTemporario, "gemini-cota"),
+        ("limite por minuto", erros.classificar_gemini(429, '{"error":{"status":"RESOURCE_EXHAUSTED"}}'),
+         erros.ErroTemporario, "gemini-rpm"),
+        ("cota diária", erros.classificar_gemini(429, "quota GenerateRequestsPerDayPerProject"),
+         erros.ErroTemporario, "gemini-cota-dia"),
         ("chave inválida", erros.classificar_gemini(400, "API_KEY_INVALID"),
          erros.ErroPermanente, "gemini-chave"),
         ("Gemini fora do ar", erros.classificar_gemini(503, "overloaded"),
@@ -415,7 +417,7 @@ def teste_erros(S):
 
     def cai(api_key, **kw):
         if kw.get("texto") == "quebra":
-            raise erros.ErroTemporario("cota", "🟡 cota", chave="gemini-cota")
+            raise erros.ErroTemporario("cota", "🟡 cota", chave="gemini-rpm")
         return fake_extrair(api_key, **kw)
 
     import extrator
@@ -463,7 +465,7 @@ def teste_erros(S):
     # --- aviso não repete ---
     tg = FakeTelegram()
     st = {"erros": {}}
-    e = erros.ErroTemporario("cota", "🟡 cota estourou", chave="gemini-cota")
+    e = erros.ErroTemporario("cota", "🟡 cota estourou", chave="gemini-rpm")
     sync.avisar_uma_vez(tg, st, e)
     sync.avisar_uma_vez(tg, st, e)
     checa("mesmo erro não vira spam", len(tg.enviadas) == 1, f"{len(tg.enviadas)} avisos")

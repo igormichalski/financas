@@ -6,9 +6,13 @@ Roda no GitHub Actions de 30 em 30 min. Nada fica ligado no PC do Igor.
 
 import os
 import sys
+import time
 import traceback
 import uuid
 from datetime import date, datetime, timedelta
+
+# Espaçamento entre mensagens da fila, pra não estourar o limite por minuto do Gemini.
+PAUSA_ENTRE_ITENS = float(os.environ.get("PAUSA_ENTRE_ITENS", "4"))
 
 import dados as D
 import erros
@@ -562,13 +566,18 @@ def processar_fila(sessao, fila, state):
     """Em ordem. Falha temporária para tudo; permanente descarta só o item."""
     restantes, parou = [], None
 
-    for item in fila.get("pendentes", []):
+    for i, item in enumerate(fila.get("pendentes", [])):
         if parou:
             restantes.append(item)
             continue
+        # O free tier do Gemini limita requisições por minuto. Espaçar aqui evita
+        # tomar 429 quando chega uma rajada de áudios de uma vez.
+        if i:
+            time.sleep(PAUSA_ENTRE_ITENS)
         try:
             sessao.processar(item["msg"])
-            limpar_erro(state, "gemini-cota")
+            for chave in ("gemini-rpm", "gemini-cota-dia", "gemini-instavel"):
+                limpar_erro(state, chave)
         except erros.ErroTemporario as e:
             # Nada de perder a mensagem: ela volta pro topo da fila.
             item["tentativas"] = item.get("tentativas", 0) + 1

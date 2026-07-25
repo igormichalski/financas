@@ -109,6 +109,34 @@ python3 testes.py        # roteamento A/B, fatura, ciclo semanal, intenções
 python3 painel.py        # regera o painel a partir do CSV
 ```
 
+## Quando algo dá errado
+
+A regra: **nenhuma mensagem sua se perde, nunca.** Tudo que chega do Telegram vai
+primeiro pra `fila.json`, que é versionada no git. Só sai da fila quando foi processada
+com sucesso. Se o Gemini ficar dois dias fora do ar, a fila espera — inclusive o que
+passaria das 24h que o Telegram guarda.
+
+| O que acontece | O que o sistema faz | O que você vê |
+|---|---|---|
+| Cota do Gemini por minuto | espera e retoma no mesmo run | aviso, uma vez a cada 6h |
+| Cota diária do Gemini | fila congela até virar o dia | aviso explicando |
+| Chave do Gemini inválida | fila congela | 🔴 avisa qual secret trocar |
+| Gemini instável (5xx) | 3 tentativas com recuo | aviso se persistir |
+| Filtro de conteúdo bloqueou | pula a mensagem, anota em `revisar.csv` | 🔴 avisa |
+| Token do bot inválido | para | 🔴 avisa qual secret trocar |
+| Bot removido do grupo | para | 🔴 avisa |
+| Flood control do Telegram | fica mudo no resto do run | nada (evita piorar) |
+| Áudio acima de 18 MB | pula | 🔴 pede áudio menor |
+| Mensagem acima de 4096 chars | fatia em pedaços | nada |
+| Sem internet | fila preservada | aviso |
+| `state.json` corrompido | renomeia pra `.corrompido` e recomeça | nada |
+| Linha quebrada no CSV | pula a linha | nada |
+| Job morto no meio da escrita | escrita atômica, arquivo nunca fica pela metade | nada |
+| Uma mensagem falha 3 vezes | descarta pra não travar a fila | ⚠️ avisa |
+| Erro que ninguém previu | avisa com o tipo do erro | 🔴 avisa |
+
+Avisos repetidos são agrupados: o mesmo erro não aparece mais de uma vez a cada 6 horas.
+
 ## Limites honestos
 
 - O Telegram guarda mensagem não lida por **24h**. Se o Actions ficar mais de um dia
