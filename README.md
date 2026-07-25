@@ -1,0 +1,121 @@
+# Controle financeiro por áudio
+
+Você fala no Telegram, o GitHub Actions processa, o ledger vive neste repositório.
+Nada roda no seu computador. Custo: R$ 0,00.
+
+```
+áudio no Telegram  →  Actions (de 30 em 30 min)  →  Gemini  →  lancamentos.csv  →  painel.html
+                                                                      ↓
+                                                      confirmação de volta no Telegram
+```
+
+## As duas carteiras
+
+|  | **Conta A** | **Conta B** |
+|---|---|---|
+| Dinheiro | seu salário | ajuda do pai |
+| Teto | R$ 1.600/mês | o que ele mandou, por semana |
+| Ciclo | mensal | reseta quando ele manda |
+| Padrão | todo o resto | mercado, combustível, marmita |
+
+Diga **"conta B"** pra forçar a carteira do pai e **"conta A"** pra forçar a sua — a
+palavra dita sempre ganha do padrão. Se o valor destoar do seu histórico
+(combustível acima de R$ 110, mercado acima de R$ 160 — calibrado dos seus 18 meses
+reais), o bot pergunta antes de gravar em vez de chutar.
+
+## Setup (uma vez, ~15 min)
+
+### 1. Bot do Telegram
+
+1. Fale com [@BotFather](https://t.me/BotFather) → `/newbot` → guarde o **token**.
+2. **`/setprivacy` → escolha o bot → `Disable`.** Sem isso o bot em grupo só enxerga
+   mensagens que começam com `/`, e todo áudio passa batido. É a pegadinha nº 1.
+3. Crie um grupo só de finanças, adicione o bot, mande um "oi".
+4. Abra `https://api.telegram.org/bot<TOKEN>/getUpdates` e copie o `chat.id`
+   (vem negativo, tipo `-4912345678`).
+
+### 2. Chave do Gemini
+
+[aistudio.google.com](https://aistudio.google.com/apikey) → criar chave. Sem cartão.
+Free tier: ~1.500 requisições/dia; você vai usar ~10.
+
+### 3. Repositório
+
+Crie um repositório **privado**, suba esta pasta, e em
+**Settings → Secrets and variables → Actions** cadastre:
+
+| Secret | Valor |
+|---|---|
+| `TELEGRAM_TOKEN` | o token do BotFather |
+| `TELEGRAM_CHAT_ID` | o id do grupo (com o menos) |
+| `GEMINI_API_KEY` | a chave do AI Studio |
+
+Depois: **Actions → sync → Run workflow** pra testar na hora.
+
+### 4. Histórico (opcional)
+
+```bash
+python3 importar_historico.py /caminho/da/pasta/Nubank
+```
+
+Lê `faturas/Nubank_*.csv` e `NU_*.csv`, importa os 18 meses e recalibra os limiares
+com os seus números. O painel nasce com contexto em vez de vazio.
+
+## Como usar (tudo por voz ou texto)
+
+| Você diz | Acontece |
+|---|---|
+| "gastei 35 no almoço" | lança na conta A |
+| "duzentos no Leve Max" | lança na conta B (mercado é padrão do pai) |
+| "abasteci 80, conta B" | força a conta B |
+| "abasteci 300 pra viagem" | o bot pergunta de qual conta antes de gravar |
+| "meu pai mandou 350" | abre uma semana nova da conta B com teto 350 |
+| "quanto gastei de comer fora esse mês?" | responde na hora, não grava nada |
+| "aquele almoço foi 45, não 35" | corrige a linha |
+| "apaga o último" | pede confirmação antes |
+| "meu esperado de comer fora é 300" | ajusta o orçamento |
+| "todo mês pago 110 de academia" | vira recorrente (mas nunca lança sozinho) |
+| "quanto tá a fatura?" | total da fatura aberta e quando fecha |
+| "me manda o painel" | manda o `painel.html` no grupo |
+
+Áudio que não tem nada a ver com dinheiro: o bot fica **calado**, de propósito.
+
+## O cartão
+
+Fecha dia **15**, vence dia **22**. Compra dia 15 é paga no dia 22 do mesmo mês;
+compra dia 16 só é paga no dia 22 do mês seguinte. O sistema separa os dois
+regimes: **competência** (quanto você torrou) e **caixa** (quanto sai da conta).
+Entre os dias 13 e 15 o bot lembra que a fatura vai fechar.
+
+## Os arquivos
+
+| Arquivo | O que é |
+|---|---|
+| `lancamentos.csv` | o ledger — a fonte da verdade |
+| `orcamento.json` | as duas carteiras, os valores esperados, os limiares |
+| `recorrentes.json` | assinaturas conhecidas (pra cobrar, não pra lançar sozinho) |
+| `semanas.json` | ciclos da conta B |
+| `painel.html` | o painel, regenerado a cada mudança |
+| `revisar.csv` | o que a IA não teve certeza e você ignorou |
+
+**Editar em massa:** abra `lancamentos.csv` ou `orcamento.json` pela interface web do
+GitHub. Já é privada, autenticada e versionada. Pra corrigir 20 categorias de uma vez
+isso é melhor que voz.
+
+## Testar sem gastar nada
+
+```bash
+python3 testes.py        # roteamento A/B, fatura, ciclo semanal, intenções
+python3 painel.py        # regera o painel a partir do CSV
+```
+
+## Limites honestos
+
+- O Telegram guarda mensagem não lida por **24h**. Se o Actions ficar mais de um dia
+  fora do ar, o que passou disso se perde.
+- O free tier da API do Gemini usa o conteúdo enviado pra melhorar os produtos do
+  Google. São áudios do tipo "gastei 35 no almoço" — baixa sensibilidade, mas você
+  precisa saber.
+- O cron do GitHub Actions atrasa alguns minutos sob carga. Irrelevante aqui.
+- Nada é lançado automaticamente. Recorrente esquecido vira pergunta, nunca
+  transação inventada.

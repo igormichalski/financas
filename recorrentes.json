@@ -1,0 +1,9 @@
+{
+  "_comentario": "Nada aqui é lançado automaticamente. Se o mês passar do dia_limite e não aparecer lançamento parecido, o bot pergunta UMA vez se você pagou.",
+  "itens": [
+    { "nome": "Academia (Iron Gym)", "categoria": "Saúde/Academia", "valor": 110.0, "dia_limite": 15 },
+    { "nome": "YouTube Premium", "categoria": "Streaming", "valor": 26.9, "dia_limite": 20 },
+    { "nome": "Spotify", "categoria": "Streaming", "valor": 23.9, "dia_limite": 20 },
+    { "nome": "iFood Club", "categoria": "iFood Club", "valor": 5.95, "dia_limite": 20 }
+  ]
+}

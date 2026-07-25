@@ -1,0 +1,74 @@
+name: sync
+
+on:
+  # Runner é UTC; Brasília é UTC-3. As duas linhas cobrem 07h–00h daqui,
+  # de 30 em 30 min. ~34 runs/dia ≈ 1.020 dos 3.000 min/mês do GitHub Pro.
+  schedule:
+    - cron: "*/30 10-23 * * *"
+    - cron: "*/30 0-2 * * *"
+  workflow_dispatch:
+    inputs:
+      relatorio:
+        description: "Mandar o painel junto"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+# Dois runs nunca podem escrever no CSV ao mesmo tempo.
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Relatório completo às 08h e 20h (BRT)
+        id: quando
+        run: |
+          hora=$(TZ=America/Sao_Paulo date +%H)
+          if [ "$hora" = "08" ] || [ "$hora" = "20" ] || \
+             [ "${{ github.event.inputs.relatorio }}" = "true" ]; then
+            echo "relatorio=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "relatorio=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Rodar o sync
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          RELATORIO: ${{ steps.quando.outputs.relatorio }}
+        run: python3 sync.py
+
+      # always(): mesmo com o sync falhando, a fila e o offset precisam persistir —
+      # senão o que já foi baixado do Telegram se perde.
+      - name: Commitar o que mudou
+        if: always()
+        run: |
+          git config user.name "financas-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add -A
+          # Sem mudança, sem commit: senão vira lixo de 34 commits vazios por dia.
+          if git diff --cached --quiet; then
+            echo "nada mudou"
+            exit 0
+          fi
+          git commit -m "sync $(TZ=America/Sao_Paulo date '+%d/%m %H:%M')"
+          # O push pode colidir com outro run; rebase e tenta de novo.
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && \
+            git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            sleep 5
+          done
+          exit 1

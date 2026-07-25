@@ -1,0 +1,57 @@
+{
+  "A": {
+    "descricao": "Seu salário — teto mensal",
+    "renda": 1600.0,
+    "itens": [
+      {
+        "nome": "Academia (Iron Gym)",
+        "categoria": "Saúde/Academia",
+        "esperado": 110.0
+      },
+      {
+        "nome": "YouTube Premium",
+        "categoria": "Streaming",
+        "esperado": 26.9
+      },
+      {
+        "nome": "Spotify",
+        "categoria": "Streaming",
+        "esperado": 23.9
+      },
+      {
+        "nome": "iFood Club",
+        "categoria": "iFood Club",
+        "esperado": 5.95
+      },
+      {
+        "nome": "Psicóloga (2 sessões/mês)",
+        "categoria": "Psicóloga",
+        "esperado": 60.0
+      },
+      {
+        "nome": "Comer fora",
+        "categoria": "Restaurantes/Lanches",
+        "esperado": 261.0
+      }
+    ]
+  },
+  "B": {
+    "descricao": "Ajuda do pai — teto semanal, reseta quando ele manda",
+    "teto_semanal": 350.0,
+    "categorias": [
+      "Mercado/Supermercado",
+      "Combustível",
+      "Marmita (Fitfood)"
+    ]
+  },
+  "cartao": {
+    "fechamento": 15,
+    "vencimento": 22
+  },
+  "limiares": {
+    "_comentario": "Acima disso o bot pergunta se é conta B ou sua. Recalibrado pelo importar_historico.py.",
+    "Combustível": 110.0,
+    "Mercado/Supermercado": 160.0,
+    "Marmita (Fitfood)": 180.0
+  }
+}
