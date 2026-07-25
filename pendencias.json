@@ -1,0 +1,17 @@
+{
+  "abertas": [
+    {
+      "id": "9a446b75",
+      "tipo": "recorrente_cobranca",
+      "pergunta": "🔁 Academia (Iron Gym) (R$ 110,00) ainda não apareceu esse mês — pagou?",
+      "criada": "2026-07-25T18:48:33-03:00",
+      "msg_id": null,
+      "dados": {
+        "nome": "Academia (Iron Gym)",
+        "categoria": "Saúde/Academia",
+        "valor": 110.0,
+        "dia_limite": 15
+      }
+    }
+  ]
+}
