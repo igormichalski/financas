@@ -139,6 +139,15 @@ num item só, e nunca devolva só o primeiro que ouviu.
 PROIBIDO INVENTAR VALOR. Sem número claro no áudio → precisa_perguntar=true e pergunte quanto foi.
 Nunca chute um valor plausível.
 
+# Recorrentes que ele já cadastrou
+{recorrentes}
+ÚNICA exceção à regra de nunca preencher valor: se ele citar um desses SEM falar o valor
+("yt pago", "paguei o spotify", "academia paga", "pagei o clube do ifood"), use o valor
+cadastrado acima, confianca="alta", e NÃO pergunte — ele já registrou esse número antes.
+Se ele disser um valor diferente do cadastrado, o valor DITO ganha sempre.
+Apelidos: "yt"/"youtube" = YouTube Premium; "academia"/"gym" = Iron Gym;
+"clube do ifood"/"assinatura do ifood" = iFood Club.
+
 # Datas
 Sem data dita → hoje. "ontem", "anteontem", "sexta passada", "dia 3" → resolva a partir de hoje.
 Sempre YYYY-MM-DD. Nunca uma data futura.
@@ -217,7 +226,7 @@ Pendência aberta: {pendencia}
 DIAS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
 
 
-def _contexto(orcamento, recentes, semana, pendencia, fatura):
+def _contexto(orcamento, recentes, semana, pendencia, fatura, recorrentes):
     linhas = [
         f"id={l['id']} {l['data']} {brl(l['valor'])} [{l['conta']}] {l['categoria']} — {l['descricao']}"
         for l in recentes
@@ -246,6 +255,10 @@ def _contexto(orcamento, recentes, semana, pendencia, fatura):
         "recentes": "\n".join(linhas) or "(nenhum ainda)",
         "semana": s,
         "pendencia": pendencia or "nenhuma",
+        "recorrentes": "\n".join(
+            f"- {i['nome']}: R$ {float(i['valor']):.2f}, categoria \"{i['categoria']}\""
+            for i in (recorrentes or {}).get("itens", [])
+        ) or "(nenhum cadastrado)",
     }
 
 
@@ -313,9 +326,11 @@ def _extrair_texto(resp: dict) -> dict:
 
 
 def extrair(api_key, *, audio=None, mime="audio/ogg", texto=None,
-            orcamento=None, recentes=(), semana=None, pendencia=None, fatura="") -> dict:
+            orcamento=None, recentes=(), semana=None, pendencia=None, fatura="",
+            recorrentes=None) -> dict:
     """Manda áudio ou texto pro Gemini e devolve a intenção estruturada."""
-    prompt = PROMPT.format(**_contexto(orcamento or {}, list(recentes), semana, pendencia, fatura))
+    prompt = PROMPT.format(**_contexto(orcamento or {}, list(recentes), semana,
+                                       pendencia, fatura, recorrentes))
 
     partes = [{"text": prompt}]
     if audio:

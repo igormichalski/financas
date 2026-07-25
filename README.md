@@ -142,11 +142,27 @@ com os seus números. O painel nasce com contexto em vez de vazio.
 | "aquele almoço foi 45, não 35" | corrige a linha |
 | "apaga o último" | pede confirmação antes |
 | "meu esperado de comer fora é 300" | ajusta o orçamento |
+| "yt pago" / "paguei o spotify" | lança com o valor cadastrado, sem perguntar |
 | "todo mês pago 110 de academia" | vira recorrente (mas nunca lança sozinho) |
 | "quanto tá a fatura?" | total da fatura aberta e quando fecha |
 | "me manda o painel" | manda o `painel.html` no grupo |
 
 Áudio que não tem nada a ver com dinheiro: o bot fica **calado**, de propósito.
+
+### Os fixos (academia, YouTube, Spotify, iFood Club)
+
+**Nada é lançado automaticamente** — lançamento automático mente: se você cancelar o
+Spotify ou a academia aumentar, o sistema continuaria debitando o valor velho pra sempre.
+
+Em vez disso, o bot te cobra. Passou o `dia_limite` do mês sem aparecer lançamento
+parecido, ele pergunta **uma vez**:
+
+> 🔁 YouTube Premium (R$ 26,90) ainda não apareceu esse mês — pagou?
+
+Responde "sim" e ele lança. Ou se preferir avisar antes, basta falar **"yt pago"** —
+sem valor nenhum, que ele usa o R$ 26,90 cadastrado. É a única situação em que ele
+preenche um valor que você não falou, porque você já registrou esse número antes.
+Falou valor diferente ("paguei 130 da academia"), o valor dito ganha.
 
 ## O cartão
 

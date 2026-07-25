@@ -410,6 +410,7 @@ class Sessao:
         kwargs = dict(
             orcamento=self.orcamento, recentes=recentes(self.linhas), semana=sem,
             pendencia=pendencia, fatura=D.fatura_aberta(),
+            recorrentes=D.ler_recorrentes(),
         )
         if file_id:
             kwargs["audio"] = self.tg.baixar(file_id, D.LIMITE_AUDIO)

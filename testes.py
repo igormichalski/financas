@@ -374,6 +374,29 @@ def teste_recorrente(S):
     RESPOSTAS.clear()
     RESPOSTAS["sim"] = {"transcricao": "sim", "intencao": "confirmacao",
                         "precisa_perguntar": False, "lancamentos": []}
+
+    # O extrator recebe os recorrentes no contexto — é o que faz "yt pago" virar
+    # R$ 26,90 sem perguntar o valor.
+    vistos = {}
+    original = __import__("extrator").extrair
+
+    def espiao(api_key, **kw):
+        vistos.update(kw)
+        return original(api_key, **kw)
+
+    import extrator
+    extrator.extrair = espiao
+    RESPOSTAS["yt"] = {"transcricao": "yt pago", "intencao": "gasto",
+                       "precisa_perguntar": False,
+                       "lancamentos": [lanc(26.9, "Streaming", descricao="YouTube Premium")]}
+    s0 = S()
+    s0.processar(msg("yt", 90))
+    checa("os recorrentes cadastrados chegam no contexto do extrator",
+          bool((vistos.get("recorrentes") or {}).get("itens")))
+    checa("'yt pago' lança sem perguntar valor",
+          len(s0.novos) == 1 and s0.novos[0]["valor"] == 26.9 and not s0.pend["abertas"])
+    extrator.extrair = original
+
     s = S()
     state = {"avisos": {}}
     saida = sync.avisos(s, state)
