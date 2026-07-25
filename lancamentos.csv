@@ -1,3 +1,9 @@
 id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianca,conta_origem,transcricao,msg_id
 1,2026-07-25T19:44:29-03:00,2026-07-25,gasto,23.9,A,Streaming,Spotify,nao_informado,,telegram,alta,padrao_categoria,"Spotify pago, yt pago",8#0
 2,2026-07-25T19:44:29-03:00,2026-07-25,gasto,26.9,A,Streaming,YouTube Premium,nao_informado,,telegram,alta,padrao_categoria,"Spotify pago, yt pago",8#1
+3,2026-07-25T19:47:03-04:00,2026-07-25,gasto,18.4,A,Restaurantes/Lanches,Sorvete Naesquimo Primavera do Leste,nao_informado,,telegram,alta,padrao_categoria,"Sorvete de R$ 18,40 em Primavera do Leste Naesquimo",9#0
+4,2026-07-25T19:47:11-04:00,2026-07-25,gasto,9.99,B,Transporte/App,Uber,nao_informado,,telegram,alta,dito,"Uber de 9,99 lançar na conta B",10#0
+5,2026-07-25T19:47:16-04:00,2026-07-25,gasto,100.0,B,Outros,Borracharia,nao_informado,,telegram,alta,dito,Borracharia 100 reias conta B,11#0
+6,2026-07-25T19:47:22-04:00,2026-07-25,gasto,134.33,B,Mercado/Supermercado,mercado,nao_informado,,telegram,alta,dito,"134,33 mercado conta B",12#0
+7,2026-07-25T19:47:32-04:00,2026-07-25,gasto,44.5,A,Restaurantes/Lanches,restaurante,nao_informado,,telegram,alta,padrao_categoria,restaurante 4450 e outro restaurante de 450,13#0
+8,2026-07-25T19:47:32-04:00,2026-07-25,gasto,4.5,A,Restaurantes/Lanches,outro restaurante,nao_informado,,telegram,alta,padrao_categoria,restaurante 4450 e outro restaurante de 450,13#1
