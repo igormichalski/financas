@@ -27,11 +27,27 @@ def checa(nome, condicao, detalhe=""):
 
 
 def sandbox():
-    """Redireciona todos os arquivos pra uma pasta temporária."""
+    """Redireciona TODO arquivo de dados pra uma pasta temporária.
+
+    Descobre os caminhos sozinho em vez de manter uma lista à mão: uma lista
+    esquecida já fez um teste sobrescrever a fila real de mensagens.
+    """
     tmp = tempfile.mkdtemp(prefix="financas-teste-")
-    for nome in ("LANCAMENTOS", "ORCAMENTO", "RECORRENTES", "SEMANAS",
-                 "PENDENCIAS", "STATE", "REVISAR"):
-        setattr(D, nome, os.path.join(tmp, getattr(D, nome).split(os.sep)[-1]))
+    reais = [n for n in dir(D)
+             if n.isupper() and isinstance(getattr(D, n), str)
+             and getattr(D, n).startswith(D.BASE + os.sep)]
+    for nome in reais:
+        setattr(D, nome, os.path.join(tmp, os.path.basename(getattr(D, nome))))
+
+    # Trava: se sobrar qualquer caminho apontando pro repositório, aborta antes
+    # de escrever em cima dos dados de verdade.
+    vazando = [n for n in dir(D)
+               if n.isupper() and isinstance(getattr(D, n), str)
+               and getattr(D, n).startswith(D.BASE + os.sep)]
+    if vazando:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise SystemExit(f"ABORTADO: {vazando} ainda apontam pro repositório real")
+
     D.gravar_orcamento({
         "A": {"renda": 1600.0, "itens": [
             {"nome": "Comer fora", "categoria": "Restaurantes/Lanches", "esperado": 261.0},
