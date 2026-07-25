@@ -12,7 +12,9 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-TZ = ZoneInfo("America/Sao_Paulo")
+# Dourados/MS é UTC-4, uma hora atrás de Brasília. Usar o fuso errado desloca a data
+# de qualquer lançamento feito perto da meia-noite.
+TZ = ZoneInfo(os.environ.get("FUSO", "America/Campo_Grande"))
 
 LANCAMENTOS = os.path.join(BASE, "lancamentos.csv")
 ORCAMENTO = os.path.join(BASE, "orcamento.json")

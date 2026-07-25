@@ -126,6 +126,19 @@ def responder_fatura(linhas) -> str:
 MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
          "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
 
+# Motivo curto pra ir junto do "X mensagens na fila", em português de gente.
+MOTIVO = {
+    "gemini-rpm": "limite por minuto do Gemini",
+    "gemini-cota-dia": "cota diária do Gemini acabou",
+    "gemini-instavel": "Gemini fora do ar",
+    "gemini-json": "Gemini devolveu resposta quebrada",
+    "gemini-vazio": "Gemini devolveu vazio",
+    "rede-Gemini": "sem conexão com o Gemini",
+    "rede-Telegram": "sem conexão com o Telegram",
+    "tg-flood": "Telegram limitou o envio",
+    "tg-instavel": "Telegram fora do ar",
+}
+
 TRACO = "━" * 18
 
 
@@ -736,7 +749,11 @@ def main():
         if parou:
             avisar_uma_vez(tg, state, parou)
             if restam:
-                saida.append(f"📥 {restam} mensagem(ns) esperando na fila — não perdi nenhuma.")
+                # O motivo vai SEMPRE junto, mesmo com o aviso detalhado suprimido pela
+                # regra de não repetir: "5 esperando" sem dizer por quê é falha silenciosa.
+                saida.append(f"📥 <b>{restam} mensagem(ns) na fila</b> — não perdi nenhuma.\n"
+                             f"<i>Travou em: {MOTIVO.get(parou.chave, parou.chave)}. "
+                             f"Tento de novo sozinho.</i>")
         else:
             # Só faz sentido cobrar recorrente e revisar orçamento com a fila em dia.
             saida += avisos(sessao, state)

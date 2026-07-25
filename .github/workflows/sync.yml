@@ -1,11 +1,11 @@
 name: sync
 
 on:
-  # Runner é UTC; Brasília é UTC-3. As duas linhas cobrem 07h–00h daqui,
+  # Runner é UTC; Dourados/MS é UTC-4. As duas linhas cobrem 07h–00h daqui,
   # de 30 em 30 min. ~34 runs/dia ≈ 1.020 dos 3.000 min/mês do GitHub Pro.
   schedule:
-    - cron: "*/30 10-23 * * *"
-    - cron: "*/30 0-2 * * *"
+    - cron: "*/30 11-23 * * *"
+    - cron: "*/30 0-3 * * *"
   workflow_dispatch:
     inputs:
       relatorio:
@@ -33,10 +33,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Relatório completo às 08h e 20h (BRT)
+      - name: Relatório completo às 08h e 20h (Dourados/MS)
         id: quando
         run: |
-          hora=$(TZ=America/Sao_Paulo date +%H)
+          hora=$(TZ=America/Campo_Grande date +%H)
           if [ "$hora" = "08" ] || [ "$hora" = "20" ] || \
              [ "${{ github.event.inputs.relatorio }}" = "true" ]; then
             echo "relatorio=1" >> "$GITHUB_OUTPUT"
@@ -65,7 +65,7 @@ jobs:
             echo "nada mudou"
             exit 0
           fi
-          git commit -m "sync $(TZ=America/Sao_Paulo date '+%d/%m %H:%M')"
+          git commit -m "sync $(TZ=America/Campo_Grande date '+%d/%m %H:%M')"
           # O push pode colidir com outro run; rebase e tenta de novo.
           for i in 1 2 3; do
             git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && \
