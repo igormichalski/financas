@@ -1,1 +1,3 @@
 id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianca,conta_origem,transcricao,msg_id
+1,2026-07-25T19:44:29-03:00,2026-07-25,gasto,23.9,A,Streaming,Spotify,nao_informado,,telegram,alta,padrao_categoria,"Spotify pago, yt pago",8#0
+2,2026-07-25T19:44:29-03:00,2026-07-25,gasto,26.9,A,Streaming,YouTube Premium,nao_informado,,telegram,alta,padrao_categoria,"Spotify pago, yt pago",8#1
