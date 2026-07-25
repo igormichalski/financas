@@ -72,6 +72,20 @@ pular. Pra forçar agora, veja a seção abaixo.
 | Ciclo | mensal | reseta quando ele manda |
 | Padrão | todo o resto | mercado, combustível, marmita |
 
+### O ciclo da conta B
+
+Você lança à vontade. **Dizer "meu pai mandou 350" é o que fecha o período:**
+
+1. a semana que estava aberta fecha com o que você gastou até ali
+2. a sobra (`teto − gasto`) vai pro **guardado**, que acumula semana após semana
+3. o gasto volta pra zero e o teto novo é o valor que ele mandou de fato
+
+Se a semana estourar, o excesso **sai do guardado**. Guardado negativo significa que a
+diferença saiu do seu bolso, e o painel diz isso com todas as letras.
+
+O que você lançar antes da primeira vez fica registrado como *período inicial* — não
+entra no guardado, porque não havia teto com o que comparar.
+
 Diga **"conta B"** pra forçar a carteira do pai e **"conta A"** pra forçar a sua — a
 palavra dita sempre ganha do padrão. Se o valor destoar do seu histórico
 (combustível acima de R$ 110, mercado acima de R$ 160 — calibrado dos seus 18 meses

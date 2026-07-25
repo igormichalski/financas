@@ -179,8 +179,30 @@ def bloco_b(linhas, orcamento, mes):
                      f"gasto {D.brl(gasto)} de {D.brl(teto)}")
     else:
         cabecalho = ("Nenhuma semana aberta — diga <b>&ldquo;meu pai mandou 350&rdquo;</b> "
-                     "no Telegram pra começar um ciclo.")
+                     "no Telegram pra fechar o período e zerar o gasto.")
         topo = ""
+
+    acum = D.acumulado()
+    if acum:
+        cabecalho += (f" Guardado das semanas fechadas: <b>{D.brl(acum)}</b>."
+                      if acum > 0 else
+                      f" Guardado negativo (<b>{D.brl(acum)}</b>): essa diferença saiu do seu bolso.")
+
+    fechados = [c for c in D.ler_semanas().get("ciclos", []) if c.get("fechado_em")][-6:]
+    historico = ""
+    if fechados:
+        itens = "".join(
+            f'<div class="row"><div class="lbl">{e(c["inicio"][8:10])}/{e(c["inicio"][5:7])}'
+            f' → {e(c["fechado_em"][8:10])}/{e(c["fechado_em"][5:7])}</div>'
+            f'<div class="track" data-tip="gastou {D.brl(c["gasto_final"])} de {D.brl(c["teto"])}">'
+            f'<div class="fill {"cut" if c["sobra"] < 0 else "b"}" '
+            f'style="width:{min(100.0, c["gasto_final"] / max(c["teto"], 1) * 100):.1f}%"></div></div>'
+            f'<div class="val num"><b>{D.brl(c["gasto_final"])}</b>'
+            f'{"sobrou " + D.brl(c["sobra"]) if c["sobra"] >= 0 else "estourou"}</div></div>'
+            for c in fechados
+        )
+        historico = (f'<p class="lead" style="margin:22px 0 10px">Semanas fechadas</p>'
+                     f'<div class="bars">{itens}</div>')
 
     maximo = max([*real.values(), 1])
     detalhe = "".join(
@@ -189,7 +211,7 @@ def bloco_b(linhas, orcamento, mes):
     return (
         f'<section><h2><span class="dot b"></span>Conta B — ajuda do pai</h2>'
         f'<p class="lead">{cabecalho} Nada daqui entra no seu orçamento mensal.</p>'
-        f'<div class="bars">{topo}{detalhe}</div></section>'
+        f'<div class="bars">{topo}{detalhe}</div>{historico}</section>'
     )
 
 

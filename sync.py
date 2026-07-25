@@ -160,11 +160,44 @@ def montar_resumo(linhas, orcamento, novos=()) -> str:
             partes.append("   " + " · ".join(f"{k} {D.brl(v)}" for k, v in list(catb.items())[:4]))
     else:
         partes.append("")
-        partes.append("🅱️ Nenhuma semana aberta — me fala quando seu pai mandar.")
+        gasto_b = D.gastos_do_mes(linhas, mes, "B")
+        partes.append("🅱️ Nenhuma semana aberta ainda"
+                      + (f" — {D.brl(gasto_b)} lançados esperando." if gasto_b else "")
+                      + "\n   Me fala quando seu pai mandar que eu fecho e zero.")
+
+    acum = D.acumulado()
+    if acum:
+        partes.append(f"   💰 Guardado das semanas fechadas: <b>{D.brl(acum)}</b>")
     return "\n".join(partes)
 
 
 # ---------------------------------------------------------------- pendências
+
+
+def _texto_virada(ciclo, valor):
+    """O que o bot fala quando você diz que seu pai mandou dinheiro."""
+    linhas = []
+    fechado = ciclo.get("_fechado")
+
+    if fechado:
+        sobra = fechado["sobra"]
+        linhas.append(f"🔒 <b>Semana fechada</b> — gastou {D.brl(fechado['gasto_final'])} "
+                      f"de {D.brl(fechado['teto'])}")
+        if sobra > 0:
+            linhas.append(f"   💰 Sobraram {D.brl(sobra)} — guardei separado.")
+        elif sobra < 0:
+            linhas.append(f"   ⚠️ Estourou {D.brl(-sobra)} — tirei do guardado.")
+        else:
+            linhas.append("   Fechou redondinho, sem sobra.")
+
+    acum = ciclo.get("_acumulado", 0)
+    if fechado or acum:
+        rotulo = "💰 <b>Guardado</b>" if acum >= 0 else "🔴 <b>Guardado</b>"
+        linhas.append(f"{rotulo}: {D.brl(acum)}"
+                      + ("" if acum >= 0 else " — essa diferença saiu do seu bolso."))
+
+    linhas.append(f"👨 <b>Semana nova</b>: teto {D.brl(valor)}, gasto zerado.")
+    return "\n".join(linhas)
 
 
 def abrir_pendencia(pend, tipo, pergunta, msg_id, extra=None):
@@ -237,13 +270,7 @@ class Sessao:
         # Receita na conta B abre uma semana nova, com o teto igual ao que ele mandou.
         if l["tipo"] == "receita" and l["conta"] == "B":
             ciclo = D.abrir_ciclo(l["valor"], l["data"], self.linhas)
-            aviso = (f"👨 Semana nova aberta com {D.brl(l['valor'])} — "
-                     f"é esse o teto até a próxima.")
-            if ciclo.get("absorvido"):
-                d = ciclo["desde"]
-                aviso += (f"\n   Puxei {D.brl(ciclo['absorvido'])} que você já tinha lançado "
-                          f"desde {d[8:10]}/{d[5:7]} e ainda não descontava de nada.")
-            self.respostas.append(aviso)
+            self.respostas.append(_texto_virada(ciclo, l["valor"]))
         return l
 
     # ------------------------------------------------------------ intenções

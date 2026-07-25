@@ -282,53 +282,76 @@ def ciclo_aberto(semanas=None):
 
 
 def abrir_ciclo(valor: float, inicio: str | None = None,
-                linhas: list[dict] | None = None, janela: int = 7) -> dict:
-    """Nova semana da conta B. O teto é o que ele mandou de fato, não os 350 teóricos.
+                linhas: list[dict] | None = None) -> dict:
+    """Fecha a semana que estava aberta e começa outra do zero.
 
-    `desde` é de onde a contagem começa, e nem sempre é igual a `inicio`. Quando não
-    existe ciclo anterior, gastos de conta B lançados nos últimos `janela` dias ficariam
-    órfãos — registrados, mas descontando de teto nenhum. Aí a contagem recua até o
-    primeiro deles. É o caso de gastar no mercado na segunda e só avisar na quarta que
-    o dinheiro chegou.
+    Dizer "meu pai mandou 350" é o que fecha o período: tudo que você lançou até ali
+    pertence à semana que está terminando, o gasto volta pra zero e o teto novo é o
+    que ele mandou de fato.
 
-    Com ciclo anterior aberto isso não acontece: o que veio no meio já foi descontado
-    do teto antigo, que é o certo.
+    O que sobrou não evapora — vai pro acumulado, que é dinheiro do seu pai que ficou
+    guardado. Se a semana estourou, o excesso sai do acumulado; ficando negativo, é
+    sinal de que a diferença saiu do seu bolso.
     """
     inicio = inicio or hoje().isoformat()
     linhas = linhas or []
     semanas = ler_semanas()
     ciclos = semanas.setdefault("ciclos", [])
+    semanas.setdefault("acumulado", 0.0)
+
+    # Primeira vez: o que você lançou antes de existir teto não some, mas também não
+    # entra no acumulado — não havia com o que comparar.
+    if not ciclos:
+        antes = [l for l in linhas if l["conta"] == "B" and l["tipo"] == "gasto"]
+        if antes:
+            semanas["periodo_inicial"] = {
+                "ate": inicio,
+                "gasto": round(sum(l["valor"] for l in antes), 2),
+                "lancamentos": len(antes),
+            }
+
+    fechado = None
+    if ciclos and not ciclos[-1].get("fechado_em"):
+        anterior = ciclos[-1]
+        gasto = gasto_no_ciclo(linhas, anterior)
+        sobra = round(anterior["teto"] - gasto, 2)
+        anterior.update({
+            "fechado_em": inicio,
+            "gasto_final": round(gasto, 2),
+            "sobra": sobra,
+        })
+        semanas["acumulado"] = round(semanas["acumulado"] + sobra, 2)
+        fechado = anterior
 
     # A fronteira é por ORDEM DE LANÇAMENTO, não por data. Data tem granularidade de
     # dia: gastar de manhã e o pai mandar à noite faria o mesmo gasto contar na semana
     # velha e na nova. O id resolve isso sem ambiguidade.
     corte = max((int(l["id"]) for l in linhas if str(l["id"]).isdigit()), default=0)
 
-    desde, orfaos = inicio, []
-    if not ciclos:
-        limite = (date.fromisoformat(inicio) - timedelta(days=janela)).isoformat()
-        orfaos = [l for l in linhas
-                  if l["conta"] == "B" and l["tipo"] == "gasto" and l["data"] >= limite]
-        if orfaos:
-            desde = min(l["data"] for l in orfaos)
-            corte = min(int(l["id"]) for l in orfaos) - 1
-
     ciclo = {
         "inicio": inicio,
-        "desde": desde,
+        "desde": inicio,
         "desde_id": corte,
         "recebido": round(float(valor), 2),
         "teto": round(float(valor), 2),
-        "absorvido": round(sum(l["valor"] for l in orfaos), 2),
     }
     ciclos.append(ciclo)
     gravar_semanas(semanas)
+    ciclo["_fechado"] = fechado
+    ciclo["_acumulado"] = semanas["acumulado"]
     return ciclo
+
+
+def acumulado() -> float:
+    """Sobra guardada das semanas já fechadas."""
+    return round(float(ler_semanas().get("acumulado") or 0), 2)
 
 
 def gasto_no_ciclo(linhas: list[dict], ciclo: dict) -> float:
     if not ciclo:
         return 0.0
+    if ciclo.get("fechado_em"):
+        return float(ciclo.get("gasto_final") or 0)  # semana fechada não muda mais
     if "desde_id" in ciclo:
         corte = ciclo["desde_id"]
         return sum(l["valor"] for l in linhas
