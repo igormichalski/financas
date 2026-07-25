@@ -11,8 +11,10 @@ import traceback
 import uuid
 from datetime import date, datetime, timedelta
 
-# Espaçamento entre mensagens da fila, pra não estourar o limite por minuto do Gemini.
-PAUSA_ENTRE_ITENS = float(os.environ.get("PAUSA_ENTRE_ITENS", "4"))
+# Espaçamento entre mensagens da fila. Medido: o free tier do gemini-3.5-flash-lite
+# aceita 15 requisições por minuto, ou seja uma a cada 4s. 5s dá margem pra retentativa
+# sem estourar a janela.
+PAUSA_ENTRE_ITENS = float(os.environ.get("PAUSA_ENTRE_ITENS", "5"))
 
 # Cadência adaptativa. O cron acorda de 30 em 30 min; se ao acordar encontrar
 # movimento (mensagem nova ou fila pendente), o run FICA VIVO checando de 3 em 3 min

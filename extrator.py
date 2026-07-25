@@ -16,8 +16,24 @@ import urllib.request
 import erros
 from dados import CATEGORIAS, PADRAO_CONTA_B, brl, hoje
 
-MODELO = os.environ.get("GEMINI_MODELO", "gemini-2.5-flash")
+# O free tier do gemini-2.5-flash é de apenas 20 requisições POR DIA — inviável.
+# O 3.5-flash-lite tem teto por minuto (15) em vez de teto diário apertado.
+# A reserva entra quando o principal esgota, pra fila nunca ficar parada por cota.
+MODELO = os.environ.get("GEMINI_MODELO", "gemini-3.5-flash-lite")
+RESERVA = os.environ.get("GEMINI_MODELO_RESERVA", "gemini-3.6-flash")
 URL = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
+
+
+def _config(modelo: str, schema: dict) -> dict:
+    cfg = {
+        "temperature": 0,
+        "responseMimeType": "application/json",
+        "responseSchema": schema,
+    }
+    # thinkingBudget só existe na linha 2.x; nos modelos 3 ele derruba a requisição.
+    if modelo.startswith("gemini-2"):
+        cfg["thinkingConfig"] = {"thinkingBudget": 0}
+    return cfg
 
 INTENCOES = [
     "gasto", "receita", "consulta", "correcao", "exclusao",
@@ -263,20 +279,32 @@ def _contexto(orcamento, recentes, semana, pendencia, fatura, recorrentes):
 
 
 def _post(corpo: dict, api_key: str, schema: dict, tentativas=3) -> dict:
+    """Tenta o modelo principal; se a cota dele acabar, cai pro reserva."""
+    modelos = [m for m in (MODELO, RESERVA) if m]
+    ultimo = None
+    for i, modelo in enumerate(modelos):
+        try:
+            return _post_modelo(corpo, api_key, schema, modelo, tentativas)
+        except erros.ErroTemporario as e:
+            ultimo = e
+            # Só vale trocar de modelo quando o problema é cota — se a rede caiu
+            # ou o serviço está fora, o reserva vai falhar igual.
+            if e.chave not in ("gemini-cota-dia", "gemini-rpm") or i == len(modelos) - 1:
+                raise
+            print(f"{modelo} sem cota; tentando {modelos[i + 1]}")
+    raise ultimo
+
+
+def _post_modelo(corpo: dict, api_key: str, schema: dict, modelo: str, tentativas: int) -> dict:
     payload = json.dumps({
         "contents": [{"role": "user", "parts": corpo}],
-        "generationConfig": {
-            "temperature": 0,
-            "responseMimeType": "application/json",
-            "responseSchema": schema,
-            "thinkingConfig": {"thinkingBudget": 0},
-        },
+        "generationConfig": _config(modelo, schema),
     }).encode()
 
     ultimo = None
     for tentativa in range(tentativas):
         req = urllib.request.Request(
-            URL.format(MODELO) + f"?key={api_key}",
+            URL.format(modelo) + f"?key={api_key}",
             data=payload,
             headers={"Content-Type": "application/json"},
             method="POST",

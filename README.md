@@ -272,6 +272,18 @@ Avisos repetidos são agrupados: o mesmo erro não aparece mais de uma vez a cad
 - O free tier da API do Gemini usa o conteúdo enviado pra melhorar os produtos do
   Google. São áudios do tipo "gastei 35 no almoço" — baixa sensibilidade, mas você
   precisa saber.
+- **Cota do Gemini, medida na prática** (o Google não publica mais a tabela):
+
+  | Modelo | Free tier |
+  |---|---|
+  | `gemini-2.5-flash` | **20 requisições por DIA** — inviável |
+  | `gemini-3.5-flash-lite` (em uso) | 15 por minuto, teto diário bem maior |
+
+  Por isso o sistema usa o `3.5-flash-lite`, espaça as chamadas em 5s e mantém o
+  `gemini-3.6-flash` como reserva pra quando a cota do principal acabar. Cada mensagem
+  sua custa 1 requisição; um run sem mensagem nova custa 0.
+- `thinkingBudget` só vale na linha 2.x do Gemini — nos modelos 3 ele derruba a
+  requisição com 400. O código só envia esse campo pra modelo 2.x.
 - O cron do GitHub Actions atrasa alguns minutos sob carga. Irrelevante aqui.
 - Nada é lançado automaticamente. Recorrente esquecido vira pergunta, nunca
   transação inventada.
