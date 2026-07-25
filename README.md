@@ -9,6 +9,60 @@ Nada roda no seu computador. Custo: R$ 0,00.
                                                       confirmação de volta no Telegram
 ```
 
+## Como funciona (e o que fica ligado)
+
+**Nada fica ligado.** Seu computador pode estar desligado. O runner do GitHub vive uns 40
+segundos, faz o trabalho e morre. Entre um ciclo e outro o sistema não existe — só os
+arquivos parados neste repositório.
+
+```
+   VOCÊ                    TELEGRAM                 GITHUB ACTIONS              GEMINI
+   ────                    ────────                 ──────────────              ──────
+     │
+     │  🎙 áudio/texto         │
+     ├───────────────────────► │
+     │                         │  guarda até 24h
+     │                         │  (nada acordado aqui)
+     │                         │
+     │                         │        ⏰ a cada 30 min (07h–00h)
+     │                         │        o cron ACORDA o runner
+     │                         │              │
+     │                         │ ◄────────────┤  1. getUpdates
+     │                         ├────────────► │     (marca como lido)
+     │                         │              │
+     │                         │              │  2. grava em fila.json ◄── trava anti-perda
+     │                         │              │     e commita
+     │                         │              │
+     │                         │              ├──────────────────────────► │  3. áudio → JSON
+     │                         │              │ ◄──────────────────────────┤     (transcreve +
+     │                         │              │                                   estrutura)
+     │                         │              │  4. lancamentos.csv
+     │                         │              │     painel.html
+     │                         │              │     git commit + push
+     │                         │              │
+     │  ✅ confirmação         │ ◄────────────┤  5. sendMessage
+     │ ◄───────────────────────┤              │
+     │                         │              │
+     │                         │        💤 runner MORRE
+```
+
+| Onde | O quê | Some se... |
+|---|---|---|
+| Telegram (servidor) | suas mensagens não lidas | passar 24h |
+| GitHub (repo privado) | ledger, orçamento, fila, painel | nunca |
+| GitHub (secrets) | as 3 chaves | você apagar |
+| Runner | o código rodando | sempre, em ~40s |
+| Seu computador | nada | — |
+
+A `fila.json` existe por causa da primeira linha dessa tabela: ela move suas mensagens do
+lugar que esquece em 24h para o lugar que nunca esquece, **antes** de tentar processar.
+
+### Por que não existe um `/rodar` no Telegram
+
+Entre um ciclo e outro não há nada escutando — ler o Telegram é justamente o que o runner
+faz quando acorda. Um `/rodar` só seria lido no ciclo seguinte, que é o que você queria
+pular. Pra forçar agora, veja a seção abaixo.
+
 ## As duas carteiras
 
 |  | **Conta A** | **Conta B** |
