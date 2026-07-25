@@ -102,6 +102,32 @@ Entre os dias 13 e 15 o bot lembra que a fatura vai fechar.
 GitHub. Já é privada, autenticada e versionada. Pra corrigir 20 categorias de uma vez
 isso é melhor que voz.
 
+## Forçar um sync agora
+
+O cron roda de 30 em 30 min (07h–00h). Pra não esperar:
+
+```bash
+./rodar.sh          # processa e manda o painel
+./rodar.sh rapido   # só processa
+```
+
+Longe do computador? **App do GitHub no celular** → repositório `financas` → aba Actions →
+workflow `sync` → **Run workflow**. Mesmo efeito, dois toques.
+
+## Nada é processado duas vezes
+
+Duas travas independentes, e a segunda existe justamente pra cobrir falha da primeira:
+
+1. **Offset do Telegram.** Pedir mensagens a partir de um `update_id` funciona como recibo —
+   o Telegram nunca reentrega o que já foi confirmado. Ele só avança depois que a mensagem
+   está gravada na fila.
+2. **Marca no lançamento.** Cada linha guarda `mensagem#posição` em `msg_id`. Se a mesma
+   mensagem reaparecer (job morto no meio, restauração de backup, run duplicado), ela é
+   reconhecida e ignorada.
+
+Run sem mensagem nova não faz nada: zero requisição ao Gemini, zero commit, e o bot fica
+calado. Só custa os poucos segundos de runner.
+
 ## Testar sem gastar nada
 
 ```bash
