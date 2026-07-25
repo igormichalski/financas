@@ -123,60 +123,101 @@ def responder_fatura(linhas) -> str:
 # ---------------------------------------------------------------- resumo
 
 
+MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
+         "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+
+TRACO = "━" * 18
+
+
+def _bloco(linhas: list[str]) -> str:
+    """Bloco monoespaçado. Número alinhado em coluna é o que faz ler de relance."""
+    corpo = "\n".join(linhas)
+    return f"<pre>{corpo}</pre>"
+
+
+def _barra(gasto: float, teto: float, largura: int = 6) -> str:
+    if teto <= 0:
+        return " " * largura
+    cheio = min(largura, round(gasto / teto * largura))
+    return "▓" * cheio + "░" * (largura - cheio)
+
+
+def _linha_meta(rotulo: str, gasto: float, teto: float) -> str:
+    """Largura pensada pra caber na tela do celular sem rolagem lateral."""
+    marca = " ⚠" if gasto > teto else ""
+    return (f"{rotulo[:10]:<10} {_barra(gasto, teto)} "
+            f"{D.num(gasto):>8}/{D.num(teto):>8}{marca}")
+
+
 def montar_resumo(linhas, orcamento, novos=()) -> str:
     partes = []
+
     if novos:
-        partes.append(f"✅ <b>{len(novos)} lançamento(s)</b>")
+        partes.append(f"✅ <b>{len(novos)} lançamento{'s' if len(novos) > 1 else ''}</b>")
+        tabela = []
         for l in novos:
-            sinal = "＋" if l["tipo"] == "receita" else ""
-            partes.append(f"• {sinal}{D.brl(l['valor'])} — {l['categoria']} — "
-                          f"{l['descricao']} <code>[{l['conta']}]</code>")
+            sinal = "+" if l["tipo"] == "receita" else " "
+            tabela.append(f"{l['conta']} {sinal}{D.num(l['valor']):>9}  "
+                          f"{l['descricao'][:15]:<15} {D.curto(l['categoria'])[:11]}")
+        partes.append(_bloco(tabela))
+        for l in novos:
             if l["transcricao"]:
-                partes.append(f"  🎙 <i>{l['transcricao'][:120]}</i>")
-        partes.append("─" * 22)
+                partes.append(f"🎙 <i>{l['transcricao'][:110]}</i>")
+        partes.append(TRACO)
 
     mes = D.hoje().isoformat()[:7]
     renda = float(orcamento.get("A", {}).get("renda") or 0)
     gasto_a = D.gastos_do_mes(linhas, mes, "A")
     extra = D.receitas_do_mes(linhas, mes, "A")
     disponivel = renda + extra
-    partes.append(f"🅰️ <b>{mes[5:7]}/{mes[:4]}</b>: {D.brl(gasto_a)} de {D.brl(disponivel)} · "
-                  f"sobra {D.brl(disponivel - gasto_a)}")
-    if extra:
-        partes.append(f"   <i>(salário {D.brl(renda)} + {D.brl(extra)} que entrou)</i>")
 
+    partes.append(f"🅰️ <b>SEU DINHEIRO</b> · {MESES[int(mes[5:7]) - 1]}")
+    topo = [f"{'gasto':<7}{D.num(gasto_a):>10}",
+            f"{'sobra':<7}{D.num(disponivel - gasto_a):>10}  de {D.num(disponivel)}"]
+    if extra:
+        topo.append(f"{'':7}{'':>10}  salário + {D.num(extra)}")
+    partes.append(_bloco(topo))
+
+    # Só o que teve movimento ou estourou. Categoria zerada é ruído — está no painel.
     esperado = D.esperado_por_categoria(orcamento)
     real = D.por_categoria(linhas, mes, "A")
-    for cat, esp in sorted(esperado.items(), key=lambda kv: -kv[1]):
-        gasto = real.get(cat, 0)
-        marca = " ⚠️ estourou" if gasto > esp else ""
-        partes.append(f"   {cat}: {D.brl(gasto)} / {D.brl(esp)}{marca}")
+    metas = [_linha_meta(D.curto(c), real.get(c, 0), e)
+             for c, e in sorted(esperado.items(), key=lambda kv: -kv[1])
+             if real.get(c, 0) > 0]
+    sobrando = [c for c in esperado if real.get(c, 0) == 0]
+    if metas:
+        partes.append(_bloco(metas))
+    if sobrando:
+        partes.append(f"<i>sem gasto ainda: {', '.join(D.curto(c) for c in sobrando)}</i>")
 
-    fatura = D.fatura_aberta()
     _, dias = D.fecha_em()
-    partes.append(f"   💳 Fatura aberta: {D.brl(D.total_fatura(linhas, fatura))} · fecha em {dias} dia(s)")
+    partes.append(f"💳 fatura aberta <b>{D.brl(D.total_fatura(linhas, D.fatura_aberta()))}</b> "
+                  f"· fecha em {dias}d")
 
+    partes.append("")
     sem = contexto_semana(linhas)
     if sem:
         ini = sem["ciclo"]["inicio"]
-        partes.append("")
-        partes.append(f"🅱️ <b>Semana</b> (desde {ini[8:10]}/{ini[5:7]}): {D.brl(sem['gasto'])} de "
-                      f"{D.brl(sem['ciclo']['teto'])} · "
-                      + (f"restam {D.brl(sem['resta'])}" if sem["resta"] >= 0
-                         else f"⚠️ estourou {D.brl(-sem['resta'])}"))
+        partes.append(f"🅱️ <b>CONTA DO PAI</b> · desde {ini[8:10]}/{ini[5:7]}")
+        bloco = [_linha_meta("semana", sem["gasto"], sem["ciclo"]["teto"]),
+                 f"{'restam' if sem['resta'] >= 0 else 'estourou':<10} {'':6} "
+                 f"{D.num(abs(sem['resta'])):>8}"]
+        partes.append(_bloco(bloco))
         catb = D.por_categoria(linhas, mes, "B")
         if catb:
-            partes.append("   " + " · ".join(f"{k} {D.brl(v)}" for k, v in list(catb.items())[:4]))
+            partes.append(_bloco([f"{D.curto(k)[:10]:<10} {D.num(v):>8}"
+                                  for k, v in list(catb.items())[:5]]))
     else:
-        partes.append("")
         gasto_b = D.gastos_do_mes(linhas, mes, "B")
-        partes.append("🅱️ Nenhuma semana aberta ainda"
-                      + (f" — {D.brl(gasto_b)} lançados esperando." if gasto_b else "")
-                      + "\n   Me fala quando seu pai mandar que eu fecho e zero.")
+        partes.append("🅱️ <b>CONTA DO PAI</b> · sem semana aberta")
+        if gasto_b:
+            partes.append(_bloco([f"{'lançado':<11} {D.num(gasto_b):>9}  esperando fechar"]))
+        partes.append("<i>me fala quando ele mandar que eu fecho e zero.</i>")
 
     acum = D.acumulado()
     if acum:
-        partes.append(f"   💰 Guardado das semanas fechadas: <b>{D.brl(acum)}</b>")
+        rotulo = "💰 guardado" if acum > 0 else "🔴 guardado"
+        partes.append(f"{rotulo} <b>{D.brl(acum)}</b>")
     return "\n".join(partes)
 
 
@@ -185,28 +226,33 @@ def montar_resumo(linhas, orcamento, novos=()) -> str:
 
 def _texto_virada(ciclo, valor):
     """O que o bot fala quando você diz que seu pai mandou dinheiro."""
-    linhas = []
+    partes = []
     fechado = ciclo.get("_fechado")
 
     if fechado:
         sobra = fechado["sobra"]
-        linhas.append(f"🔒 <b>Semana fechada</b> — gastou {D.brl(fechado['gasto_final'])} "
-                      f"de {D.brl(fechado['teto'])}")
+        partes.append("🔒 <b>SEMANA FECHADA</b>")
+        partes.append(_bloco([
+            f"{'gastou':<9} {D.num(fechado['gasto_final']):>9}",
+            f"{'teto':<9} {D.num(fechado['teto']):>9}",
+            f"{'sobra' if sobra >= 0 else 'estourou':<9} {D.num(abs(sobra)):>9}",
+        ]))
         if sobra > 0:
-            linhas.append(f"   💰 Sobraram {D.brl(sobra)} — guardei separado.")
+            partes.append(f"💰 Guardei os {D.brl(sobra)} que sobraram.")
         elif sobra < 0:
-            linhas.append(f"   ⚠️ Estourou {D.brl(-sobra)} — tirei do guardado.")
+            partes.append(f"⚠️ Estourou {D.brl(-sobra)} — tirei do guardado.")
         else:
-            linhas.append("   Fechou redondinho, sem sobra.")
+            partes.append("Fechou redondinho, sem sobra.")
 
     acum = ciclo.get("_acumulado", 0)
     if fechado or acum:
-        rotulo = "💰 <b>Guardado</b>" if acum >= 0 else "🔴 <b>Guardado</b>"
-        linhas.append(f"{rotulo}: {D.brl(acum)}"
+        rotulo = "💰 <b>guardado</b>" if acum >= 0 else "🔴 <b>guardado</b>"
+        partes.append(f"{rotulo} {D.brl(acum)}"
                       + ("" if acum >= 0 else " — essa diferença saiu do seu bolso."))
 
-    linhas.append(f"👨 <b>Semana nova</b>: teto {D.brl(valor)}, gasto zerado.")
-    return "\n".join(linhas)
+    partes.append(TRACO)
+    partes.append(f"👨 <b>SEMANA NOVA</b> · teto {D.brl(valor)}, gasto zerado.")
+    return "\n".join(partes)
 
 
 def abrir_pendencia(pend, tipo, pergunta, msg_id, extra=None):

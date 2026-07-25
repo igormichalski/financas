@@ -422,9 +422,33 @@ def definir_esperado(orcamento: dict, categoria: str, valor: float) -> None:
         orcamento.setdefault("A", {}).setdefault("overrides", {})[categoria] = round(float(valor), 2)
 
 
-def brl(v: float) -> str:
+def num(v: float) -> str:
+    """Só o número, no formato BR — pra alinhar em coluna."""
     s = f"{abs(v):,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
-    return f"-R$ {s}" if v < 0 else f"R$ {s}"
+    return f"-{s}" if v < 0 else s
+
+
+def brl(v: float) -> str:
+    return ("-R$ " if v < 0 else "R$ ") + num(v).lstrip("-")
+
+
+# Nome curto pra caber na tabela do Telegram sem quebrar linha.
+CURTO = {
+    "Restaurantes/Lanches": "Comer fora",
+    "Mercado/Supermercado": "Mercado",
+    "Marmita (Fitfood)": "Marmita",
+    "Transporte/App": "Transporte",
+    "Saúde/Academia": "Saúde",
+    "Serviços online/Tech": "Tech",
+    "Educação/Cursos": "Educação",
+    "Viagem/Passagens": "Viagem",
+    "Pix p/ pessoas": "Pix",
+    "Combustível": "Combust.",
+}
+
+
+def curto(categoria: str) -> str:
+    return CURTO.get(categoria, categoria)
 
 
 def semana_passou(ciclo: dict, dias: int = 8) -> bool:

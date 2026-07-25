@@ -205,10 +205,14 @@ def teste_ciclo_semanal(S):
     sem = sync.contexto_semana(s.linhas)
     checa("restam R$ 61 da semana", abs(sem["resta"] - 61.0) < 0.01, f"deu {sem['resta']}")
 
+    mes = D.hoje().isoformat()[:7]
     resumo = sync.montar_resumo(s.linhas, s.orcamento)
-    checa("estouro da semana não aparece no bloco A",
-          "1.600" in resumo and "R$ 0,00 de R$ 1.600,00" in resumo,
-          "gasto da conta B vazou pro total do salário")
+    checa("gasto da conta B não entra no total do salário",
+          D.gastos_do_mes(s.linhas, mes, "A") == 0.0
+          and D.gastos_do_mes(s.linhas, mes, "B") == 289.0,
+          f"A={D.gastos_do_mes(s.linhas, mes, 'A')} B={D.gastos_do_mes(s.linhas, mes, 'B')}")
+    checa("o resumo mostra os dois blocos separados",
+          "SEU DINHEIRO" in resumo and "CONTA DO PAI" in resumo)
 
     s.processar(msg("pai300", 3))
     checa("semana nova tem teto 300 (o que ele mandou, não os 350 teóricos)",
@@ -267,7 +271,7 @@ def teste_fechamento(S):
     checa("teto acompanha o valor real (300, não 350)",
           sync.contexto_semana(s.linhas)["ciclo"]["teto"] == 300.0)
     checa("o bot avisa que fechou e guardou",
-          any("Semana fechada" in r and "guardei separado" in r.lower() for r in s.respostas),
+          any("SEMANA FECHADA" in r and "Guardei" in r for r in s.respostas),
           str(s.respostas[-1:]))
 
     s.processar(msg("gasta400", 5))
