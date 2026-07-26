@@ -186,6 +186,65 @@ Entre os dias 13 e 15 o bot lembra que a fatura vai fechar.
 GitHub. Já é privada, autenticada e versionada. Pra corrigir 20 categorias de uma vez
 isso é melhor que voz.
 
+## Quem dispara o sync
+
+O agendador do GitHub **não é confiável** em repositório gratuito — a documentação deles
+chama de "melhor esforço", e na prática já pulou 4 slots seguidos aqui. Por isso ele ficou
+só como rede de segurança (de hora em hora) e quem dispara de verdade é um pinger externo.
+
+### Configurar o pinger (uma vez, ~5 min)
+
+**1. Criar o token** em [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new):
+
+| Campo | Valor |
+|---|---|
+| Token name | `pinger-financas` |
+| Expiration | 1 year (anote pra renovar) |
+| Repository access | **Only select repositories** → `financas` |
+| Permissions → Actions | **Read and write** |
+
+Só isso. Esse token não abre mais nada além de disparar o workflow desse repositório.
+
+**2. Criar o job** em [cron-job.org](https://console.cron-job.org) (grátis, cadastro com e-mail):
+
+| Campo | Valor |
+|---|---|
+| URL | `https://api.github.com/repos/igormichalski/financas/actions/workflows/sync.yml/dispatches` |
+| Method | `POST` |
+| Schedule | a cada **15 minutos**, das **07:00 às 00:00** |
+| Timezone | `America/Campo_Grande` |
+
+Em **Headers**:
+```
+Authorization: Bearer SEU_TOKEN_AQUI
+Accept: application/vnd.github+json
+Content-Type: application/json
+```
+
+Em **Request body**:
+```json
+{"ref":"main"}
+```
+
+Resposta esperada: **204 No Content**. Se vier 401 o token está errado; 404 quase sempre é
+permissão de Actions faltando no token.
+
+### Por que 15 minutos
+
+O GitHub cobra Actions por minuto **arredondado pra cima**, então cada disparo custa 1 minuto
+mesmo durando 20 segundos:
+
+| Intervalo | Runs/dia | Minutos/mês | Cabe nos 3.000? |
+|---|---|---|---|
+| 5 min | 204 | ~6.120 | ❌ |
+| 10 min | 102 | ~3.060 | ❌ |
+| **15 min** | **68** | **~2.040** | ✅ |
+| 20 min | 51 | ~1.530 | ✅ |
+
+Com o cron de hora em hora somando mais ~17/dia, o total fica em ~2.550 min/mês. E lembre
+que a cadência adaptativa abaixo já dá resposta de 3 em 3 minutos **depois** que um run
+começa e encontra movimento.
+
 ## Cadência adaptativa
 
 O cron acorda de **30 em 30 min** (07h–00h). Mas se ao acordar ele encontrar movimento —

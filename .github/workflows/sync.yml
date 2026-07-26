@@ -1,11 +1,13 @@
 name: sync
 
 on:
-  # Runner é UTC; Dourados/MS é UTC-4. As duas linhas cobrem 07h–00h daqui,
-  # de 30 em 30 min. ~34 runs/dia ≈ 1.020 dos 3.000 min/mês do GitHub Pro.
+  # REDE DE SEGURANÇA, não a fonte principal: o agendador do GitHub é "melhor
+  # esforço" em repositório gratuito e já pulou 4 slots seguidos. Quem dispara de
+  # verdade é um pinger externo de 15 em 15 min (veja o README).
+  # Runner é UTC; Dourados/MS é UTC-4. De hora em hora, cobrindo 07h–00h daqui.
   schedule:
-    - cron: "*/30 11-23 * * *"
-    - cron: "*/30 0-3 * * *"
+    - cron: "0 11-23 * * *"
+    - cron: "0 0-3 * * *"
   workflow_dispatch:
     inputs:
       relatorio:
