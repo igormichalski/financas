@@ -11,3 +11,4 @@ id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianc
 10,2026-07-26T07:51:24-04:00,2026-07-26,receita,250.0,B,Outros,ajuda do pai,nao_informado,,telegram,alta,dito,Meu pai mandou 250,37#0
 11,2026-07-26T15:30:12-04:00,2026-07-26,gasto,24.0,A,Restaurantes/Lanches,padaria,nao_informado,,telegram,alta,padrao_categoria,24 reais de padaria,42#0
 12,2026-07-26T15:30:18-04:00,2026-07-26,gasto,3.98,A,Restaurantes/Lanches,todinhos na padaria,nao_informado,,telegram,alta,padrao_categoria,"3,98 todinhos na padaria",43#0
+13,2026-07-26T16:30:15-04:00,2026-07-26,gasto,70.0,B,Combustível,posto,nao_informado,,telegram,alta,padrao_categoria,Gastei 70 reais no posto,45#0
