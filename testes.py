@@ -592,6 +592,60 @@ def teste_erros(S):
             os.environ[k] = v
 
 
+def teste_silencio(S):
+    print("\n🤫 Só fala quando tem novidade")
+    import sync
+
+    RESPOSTAS.clear()
+    RESPOSTAS["gasto"] = {"transcricao": "35 no almoço", "intencao": "gasto",
+                          "precisa_perguntar": False,
+                          "lancamentos": [lanc(35, "Restaurantes/Lanches", descricao="almoço")]}
+
+    class TgConta(FakeTelegram):
+        def updates(self, offset):
+            leva = self.levas.pop(0) if getattr(self, "levas", None) else []
+            return [{"update_id": 5000 + offset + i, "message": m} for i, m in enumerate(leva)]
+
+    def roda(levas, relatorio):
+        tg = TgConta()
+        tg.levas = list(levas)
+        os.environ.update({"TELEGRAM_TOKEN": "x", "TELEGRAM_CHAT_ID": "-1",
+                           "GEMINI_API_KEY": "x"})
+        os.environ["RELATORIO"] = "1" if relatorio else "0"
+        original = sync.Telegram
+        sync.Telegram = lambda *a, **k: tg
+        try:
+            sync.main()
+        finally:
+            sync.Telegram = original
+            os.environ.pop("RELATORIO", None)
+        return tg
+
+    D.gravar_fila({"pendentes": []})
+    D.gravar_state({"offset": 0, "avisos": {}, "erros": {}})
+    D.gravar_lancamentos([])
+    D.gravar_pendencias({"abertas": []})
+    D.gravar_recorrentes({"itens": []})
+    sync.CICLO_RAPIDO = 0
+
+    tg = roda([[msg("gasto", 1)]], relatorio=True)
+    checa("com lançamento novo, manda resumo e painel",
+          len(tg.enviadas) >= 1 and len(tg.docs) == 1, f"{len(tg.enviadas)} msg, {len(tg.docs)} doc")
+
+    tg = roda([[]], relatorio=True)
+    checa("relatório sem novidade nenhuma: silêncio total",
+          not tg.enviadas and not tg.docs,
+          f"mandou {len(tg.enviadas)} msg e {len(tg.docs)} doc à toa")
+
+    tg = roda([[msg("gasto", 2)]], relatorio=True)
+    checa("lançou de novo → volta a mandar", len(tg.enviadas) >= 1 and len(tg.docs) == 1)
+
+    tg = roda([[]], relatorio=False)
+    checa("run comum sem nada também fica calado", not tg.enviadas)
+
+    sync.CICLO_RAPIDO = 180
+
+
 def teste_cadencia(S):
     print("\n⏱  Cadência adaptativa (3 min com movimento, 30 min parado)")
     import sync
@@ -755,6 +809,7 @@ def main():
         teste_ifood()
         teste_painel()
         teste_erros(S)
+        teste_silencio(S)
         teste_cadencia(S)
         teste_arquivos_robustos()
     finally:

@@ -149,6 +149,21 @@ com os seus números. O painel nasce com contexto em vez de vazio.
 
 Áudio que não tem nada a ver com dinheiro: o bot fica **calado**, de propósito.
 
+### Quando o bot fala (e quando não fala)
+
+| Situação | Fala? |
+|---|---|
+| Você lançou algo | ✅ confirma na hora |
+| Você perguntou algo | ✅ responde |
+| 08h/20h **com** lançamento novo desde o último relatório | ✅ resumo + painel |
+| 08h/20h **sem** novidade nenhuma | ❌ silêncio |
+| Ciclo sem mensagem nova | ❌ silêncio |
+| Fatura fechando, recorrente sumido, erro | ✅ avisa uma vez |
+
+Relatório que chega todo dia dizendo a mesma coisa treina você a ignorar — e aí você
+perde junto o aviso que importava. Por isso o resumo periódico só sai quando tem
+lançamento novo desde a última vez que ele foi enviado.
+
 ### Os fixos (academia, YouTube, Spotify, iFood Club)
 
 **Nada é lançado automaticamente** — lançamento automático mente: se você cancelar o

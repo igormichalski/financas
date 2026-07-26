@@ -746,7 +746,14 @@ def main():
 
         saida = [r for r in sessao.respostas if r != "__RELATORIO__"]
         pediu_painel = "__RELATORIO__" in sessao.respostas
-        relatorio = completo and passada == 1  # o painel completo vai uma vez só
+
+        # O relatório das 08h/20h só sai se aconteceu alguma coisa desde o último.
+        # Sem isso vira mensagem diária dizendo o mesmo, e mensagem que não traz
+        # novidade treina você a ignorar as que trazem.
+        maior_id = max((int(l["id"]) for l in sessao.linhas
+                        if str(l["id"]).isdigit()), default=0)
+        tem_novidade = maior_id > int(state.get("ultimo_id_relatado", 0))
+        relatorio = completo and passada == 1 and tem_novidade
 
         if parou:
             avisar_uma_vez(tg, state, parou)
@@ -775,12 +782,15 @@ def main():
 
         if sessao.novos or relatorio or pediu_painel:
             saida.append(montar_resumo(sessao.linhas, sessao.orcamento, sessao.novos))
+            state["ultimo_id_relatado"] = maior_id
 
-        # Silêncio quando não houve nada: um bot que fala 34 vezes por dia você silencia.
+        # Silêncio quando não houve nada: um bot que fala à toa você silencia,
+        # e aí perde também o aviso que importava.
         if saida:
             tg.enviar("\n".join(saida))
         if relatorio or pediu_painel:
             tg.documento(painel.SAIDA, "📊 Painel atualizado")
+        D.gravar_state(state)
 
         print(f"passada={passada} novos={novos} fila={restam} "
               f"lancados={len(sessao.novos)} offset={state['offset']} parou={parou}")
