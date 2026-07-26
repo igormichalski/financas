@@ -1,3 +1,17 @@
 {
-  "ciclos": []
+  "ciclos": [
+    {
+      "inicio": "2026-07-26",
+      "desde": "2026-07-26",
+      "desde_id": 10,
+      "recebido": 250.0,
+      "teto": 250.0
+    }
+  ],
+  "acumulado": 0.0,
+  "periodo_inicial": {
+    "ate": "2026-07-26",
+    "gasto": 244.32,
+    "lancamentos": 3
+  }
 }
