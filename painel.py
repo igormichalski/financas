@@ -165,22 +165,14 @@ def bloco_a(linhas, orcamento, mes):
 
 
 def bloco_b(linhas, orcamento, mes):
-    ciclo = D.ciclo_aberto()
+    ciclo = D.periodo_aberto(linhas)
     real = D.por_categoria(linhas, mes, "B")
-    if ciclo:
-        gasto = D.gasto_no_ciclo(linhas, ciclo)
-        teto = ciclo["teto"]
-        resta = teto - gasto
-        ini = ciclo["inicio"]
-        cabecalho = (f'Semana aberta em {ini[8:10]}/{ini[5:7]} com {D.brl(ciclo["recebido"])}. '
-                     + (f'Restam {D.brl(resta)}.' if resta >= 0
-                        else f'Estourou {D.brl(-resta)}.'))
-        topo = barra("Semana atual", gasto, teto, max(teto, gasto, 1), "b",
-                     f"gasto {D.brl(gasto)} de {D.brl(teto)}")
-    else:
-        cabecalho = ("Nenhuma semana aberta — diga <b>&ldquo;meu pai mandou 350&rdquo;</b> "
-                     "no Telegram pra fechar o período e zerar o gasto.")
-        topo = ""
+    gasto = D.gasto_no_ciclo(linhas, ciclo)
+    ini = ciclo["inicio"]
+    cabecalho = (f'Acumulando desde {ini[8:10]}/{ini[5:7]}: <b>{D.brl(gasto)}</b>. '
+                 'Diga <b>&ldquo;meu pai mandou 350&rdquo;</b> no Telegram pra fechar o '
+                 'período e ver a sobra.')
+    topo = ""
 
     acum = D.acumulado()
     if acum:
@@ -194,19 +186,21 @@ def bloco_b(linhas, orcamento, mes):
         itens = "".join(
             f'<div class="row"><div class="lbl">{e(c["inicio"][8:10])}/{e(c["inicio"][5:7])}'
             f' → {e(c["fechado_em"][8:10])}/{e(c["fechado_em"][5:7])}</div>'
-            f'<div class="track" data-tip="gastou {D.brl(c["gasto_final"])} de {D.brl(c["teto"])}">'
+            f'<div class="track" data-tip="gastou {D.brl(c["gasto"])} · '
+            f'recebeu {D.brl(c["recebido"])}">'
             f'<div class="fill {"cut" if c["sobra"] < 0 else "b"}" '
-            f'style="width:{min(100.0, c["gasto_final"] / max(c["teto"], 1) * 100):.1f}%"></div></div>'
-            f'<div class="val num"><b>{D.brl(c["gasto_final"])}</b>'
-            f'{"sobrou " + D.brl(c["sobra"]) if c["sobra"] >= 0 else "estourou"}</div></div>'
+            f'style="width:{min(100.0, c["gasto"] / max(c["recebido"], 1) * 100):.1f}%"></div></div>'
+            f'<div class="val num"><b>{D.brl(c["gasto"])}</b>'
+            f'{"sobrou " + D.brl(c["sobra"]) if c["sobra"] >= 0 else "faltou"}</div></div>'
             for c in fechados
         )
-        historico = (f'<p class="lead" style="margin:22px 0 10px">Semanas fechadas</p>'
+        historico = (f'<p class="lead" style="margin:22px 0 10px">Períodos fechados</p>'
                      f'<div class="bars">{itens}</div>')
 
+    real = D.categorias_do_periodo(linhas, ciclo)
     maximo = max([*real.values(), 1])
     detalhe = "".join(
-        barra(c, v, 0, maximo, "b", f"{c}: {D.brl(v)} no mês") for c, v in real.items()
+        barra(c, v, 0, maximo, "b", f"{c}: {D.brl(v)} no período") for c, v in real.items()
     )
     return (
         f'<section><h2><span class="dot b"></span>Conta B — ajuda do pai</h2>'
@@ -308,14 +302,9 @@ def kpis(linhas, orcamento, mes):
     total_fat = D.total_fatura(linhas, D.fatura_aberta())
     _, dias_f = D.fecha_em()
 
-    ciclo = D.ciclo_aberto()
-    if ciclo:
-        resta_b = ciclo["teto"] - D.gasto_no_ciclo(linhas, ciclo)
-        kpi_b = (f'<div class="kpi b"><div class="v num {"cut" if resta_b < 0 else ""}">'
-                 f'{D.brl(resta_b)}</div><div class="l">Resta da semana do pai</div></div>')
-    else:
-        kpi_b = ('<div class="kpi b"><div class="v">—</div>'
-                 '<div class="l">Nenhuma semana aberta</div></div>')
+    gasto_b = D.gasto_no_ciclo(linhas, D.periodo_aberto(linhas))
+    kpi_b = (f'<div class="kpi b"><div class="v num">{D.brl(gasto_b)}</div>'
+             f'<div class="l">Acumulado da conta do pai</div></div>')
 
     return (
         '<div class="kpis">'

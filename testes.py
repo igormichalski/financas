@@ -195,113 +195,70 @@ def teste_pergunta_resolve(S):
 
 
 def teste_ciclo_semanal(S):
-    print("\n👨 Ciclo semanal da conta B")
+    print("\n👨 Conta do pai: acumula, depois fecha com o que ele mandou")
     import sync
 
+    D.gravar_semanas({"ciclos": [], "acumulado": 0.0})
     RESPOSTAS.clear()
     RESPOSTAS.update({
-        "pai350": {"transcricao": "meu pai mandou 350", "intencao": "receita",
-                   "precisa_perguntar": False,
-                   "lancamentos": [lanc(350, "Outros", "B", "dito", "receita",
-                                        descricao="ajuda do pai")]},
-        "mercado289": {"transcricao": "289 no mercado", "intencao": "gasto",
+        "mercado244": {"transcricao": "244,32 no mercado", "intencao": "gasto",
                        "precisa_perguntar": False,
-                       "lancamentos": [lanc(289, "Mercado/Supermercado", descricao="mercado")]},
-        "pai300": {"transcricao": "meu pai mandou 300", "intencao": "receita",
+                       "lancamentos": [lanc(244.32, "Mercado/Supermercado", descricao="mercado")]},
+        "pai250": {"transcricao": "meu pai mandou 250", "intencao": "receita",
                    "precisa_perguntar": False,
-                   "lancamentos": [lanc(300, "Outros", "B", "dito", "receita",
+                   "lancamentos": [lanc(250, "Outros", "B", "dito", "receita",
                                         descricao="ajuda do pai")]},
+        "gasta100": {"transcricao": "100 no mercado", "intencao": "gasto",
+                     "precisa_perguntar": False,
+                     "lancamentos": [lanc(100, "Mercado/Supermercado", descricao="depois")]},
+        "pai90": {"transcricao": "meu pai mandou 90", "intencao": "receita",
+                  "precisa_perguntar": False,
+                  "lancamentos": [lanc(90, "Outros", "B", "dito", "receita",
+                                       descricao="ajuda do pai")]},
     })
-    s = S()
-    s.processar(msg("pai350", 1))
-    ciclo = D.ciclo_aberto()
-    checa("receita do pai abre semana com teto 350", ciclo and ciclo["teto"] == 350.0)
 
-    s.processar(msg("mercado289", 2))
+    s = S()
+    s.processar(msg("mercado244", 1))
     sem = sync.contexto_semana(s.linhas)
-    checa("restam R$ 61 da semana", abs(sem["resta"] - 61.0) < 0.01, f"deu {sem['resta']}")
+    checa("gasto acumula sem teto nenhum",
+          sem and sem["gasto"] == 244.32 and "teto" not in sem["ciclo"],
+          f"{sem}")
+
+    s.processar(msg("pai250", 2))
+    fechados = [c for c in D.ler_semanas()["ciclos"] if c.get("fechado_em")]
+    checa("dizer o valor fecha o período com o que JÁ foi gasto",
+          len(fechados) == 1 and fechados[0]["gasto"] == 244.32
+          and fechados[0]["recebido"] == 250.0,
+          str(fechados))
+    checa("sobra = recebido − gasto = 5,68",
+          abs(fechados[0]["sobra"] - 5.68) < 0.01, f"deu {fechados[0]['sobra']}")
+    checa("a sobra vai pro guardado", abs(D.acumulado() - 5.68) < 0.01, f"{D.acumulado()}")
+    checa("período novo começa zerado",
+          sync.contexto_semana(s.linhas)["gasto"] == 0.0)
+    checa("o bot mostra a conta do fechamento",
+          any("PERÍODO FECHADO" in r and "sobrou" in r for r in s.respostas),
+          str(s.respostas[-1:]))
 
     mes = D.hoje().isoformat()[:7]
     resumo = sync.montar_resumo(s.linhas, s.orcamento)
     checa("gasto da conta B não entra no total do salário",
           D.gastos_do_mes(s.linhas, mes, "A") == 0.0
-          and D.gastos_do_mes(s.linhas, mes, "B") == 289.0,
-          f"A={D.gastos_do_mes(s.linhas, mes, 'A')} B={D.gastos_do_mes(s.linhas, mes, 'B')}")
+          and D.gastos_do_mes(s.linhas, mes, "B") == 244.32)
     checa("o resumo mostra os dois blocos separados",
           "SEU DINHEIRO" in resumo and "CONTA DO PAI" in resumo)
 
-    s.processar(msg("pai300", 3))
-    checa("semana nova tem teto 300 (o que ele mandou, não os 350 teóricos)",
-          D.ciclo_aberto()["teto"] == 300.0)
+    s.processar(msg("gasta100", 3))
+    checa("gasto depois da virada entra só no período novo",
+          sync.contexto_semana(s.linhas)["gasto"] == 100.0)
 
-
-def teste_fechamento(S):
-    print("\n🔒 Fechar a semana e guardar a sobra")
-    import sync
-    from datetime import timedelta
-
-    D.gravar_semanas({"ciclos": [], "acumulado": 0.0})
-    ontem = (D.hoje() - timedelta(days=2)).isoformat()
-
-    RESPOSTAS.clear()
-    RESPOSTAS.update({
-        "antes": {"transcricao": "60 no mercado", "intencao": "gasto",
-                  "precisa_perguntar": False,
-                  "lancamentos": [lanc(60, "Mercado/Supermercado", data=ontem, descricao="antes")]},
-        "pai350": {"transcricao": "meu pai mandou 350", "intencao": "receita",
-                   "precisa_perguntar": False,
-                   "lancamentos": [lanc(350, "Outros", "B", "dito", "receita", descricao="pai")]},
-        "gasta289": {"transcricao": "289 no mercado", "intencao": "gasto",
-                     "precisa_perguntar": False,
-                     "lancamentos": [lanc(289, "Mercado/Supermercado", descricao="semana1")]},
-        "pai300": {"transcricao": "meu pai mandou 300", "intencao": "receita",
-                   "precisa_perguntar": False,
-                   "lancamentos": [lanc(300, "Outros", "B", "dito", "receita", descricao="pai")]},
-        "gasta400": {"transcricao": "400 no mercado", "intencao": "gasto",
-                     "precisa_perguntar": False,
-                     "lancamentos": [lanc(400, "Mercado/Supermercado", descricao="semana2")]},
-        "pai350b": {"transcricao": "meu pai mandou 350", "intencao": "receita",
-                    "precisa_perguntar": False,
-                    "lancamentos": [lanc(350, "Outros", "B", "dito", "receita", descricao="pai")]},
-    })
-
-    s = S()
-    s.processar(msg("antes", 1))
-    checa("lança antes de existir teto, sem ciclo", sync.contexto_semana(s.linhas) is None)
-
-    s.processar(msg("pai350", 2))
-    sem = sync.contexto_semana(s.linhas)
-    checa("anunciar zera o gasto", sem["gasto"] == 0.0, f"contou {sem['gasto']}")
-    checa("teto novo é o que ele mandou", sem["ciclo"]["teto"] == 350.0)
-    checa("o que foi lançado antes fica registrado como período inicial",
-          D.ler_semanas().get("periodo_inicial", {}).get("gasto") == 60.0)
-    checa("período inicial não entra no guardado", D.acumulado() == 0.0)
-
-    s.processar(msg("gasta289", 3))
-    checa("gasto da semana desconta do teto",
-          sync.contexto_semana(s.linhas)["resta"] == 61.0)
-
-    s.processar(msg("pai300", 4))
-    checa("fechar guarda a sobra de R$ 61", D.acumulado() == 61.0, f"{D.acumulado()}")
-    checa("semana nova nasce zerada", sync.contexto_semana(s.linhas)["gasto"] == 0.0)
-    checa("teto acompanha o valor real (300, não 350)",
-          sync.contexto_semana(s.linhas)["ciclo"]["teto"] == 300.0)
-    checa("o bot avisa que fechou e guardou",
-          any("SEMANA FECHADA" in r and "Guardei" in r for r in s.respostas),
-          str(s.respostas[-1:]))
-
-    s.processar(msg("gasta400", 5))
-    s.processar(msg("pai350b", 6))
-    checa("estouro de R$ 100 sai do guardado (61 - 100)",
-          D.acumulado() == -39.0, f"{D.acumulado()}")
-    checa("avisa que estourou e que saiu do bolso",
-          any("Estourou" in r and "bolso" in r for r in s.respostas), str(s.respostas[-1:]))
-
+    s.processar(msg("pai90", 4))
     fechados = [c for c in D.ler_semanas()["ciclos"] if c.get("fechado_em")]
-    checa("semanas fechadas viram histórico com sobra registrada",
-          len(fechados) == 2 and fechados[0]["sobra"] == 61.0 and fechados[1]["sobra"] == -100.0)
-    checa("semana fechada não muda mais, mesmo com lançamento novo",
-          D.gasto_no_ciclo(s.linhas, fechados[0]) == 289.0)
+    checa("recebendo menos que o gasto, a sobra fica negativa",
+          fechados[1]["sobra"] == -10.0, f"deu {fechados[1]['sobra']}")
+    checa("e o guardado absorve a diferença",
+          abs(D.acumulado() - (5.68 - 10.0)) < 0.01, f"{D.acumulado()}")
+    checa("período fechado não muda mais com lançamento novo",
+          D.gasto_no_ciclo(s.linhas, fechados[0]) == 244.32)
 
 
 def teste_isolamento(S):
@@ -802,7 +759,6 @@ def main():
         teste_roteamento(S)
         teste_pergunta_resolve(S)
         teste_ciclo_semanal(S)
-        teste_fechamento(S)
         teste_isolamento(S)
         teste_intencoes(S)
         teste_idempotencia(S)

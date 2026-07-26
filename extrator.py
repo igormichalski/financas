@@ -248,10 +248,10 @@ def _contexto(orcamento, recentes, semana, pendencia, fatura, recorrentes):
         for l in recentes
     ]
     if semana:
-        s = (f"início {semana['ciclo']['inicio']}, recebido {brl(semana['ciclo']['recebido'])}, "
-             f"gasto {brl(semana['gasto'])}, resta {brl(semana['resta'])}")
+        s = (f"acumulando desde {semana['ciclo']['inicio']}, "
+             f"já gastou {brl(semana['gasto'])} — sem teto até ele dizer quanto o pai mandou")
     else:
-        s = "nenhuma semana aberta — ele ainda não registrou entrada do pai"
+        s = "período novo, nada gasto ainda"
 
     esperados = ", ".join(
         f"{i['categoria']}={i['esperado']}" for i in orcamento.get("A", {}).get("itens", [])
