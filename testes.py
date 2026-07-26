@@ -628,20 +628,22 @@ def teste_silencio(S):
     D.gravar_recorrentes({"itens": []})
     sync.CICLO_RAPIDO = 0
 
-    tg = roda([[msg("gasto", 1)]], relatorio=True)
-    checa("com lançamento novo, manda resumo e painel",
-          len(tg.enviadas) >= 1 and len(tg.docs) == 1, f"{len(tg.enviadas)} msg, {len(tg.docs)} doc")
+    tg = roda([[msg("gasto", 1)]], relatorio=False)
+    checa("custo mudou → manda o resumo",
+          len(tg.enviadas) >= 1, f"{len(tg.enviadas)} msg")
+    checa("mas não manda o painel sem pedir", not tg.docs, f"{len(tg.docs)} doc à toa")
 
-    tg = roda([[]], relatorio=True)
-    checa("relatório sem novidade nenhuma: silêncio total",
+    tg = roda([[]], relatorio=False)
+    checa("sem alteração de custo: silêncio total",
           not tg.enviadas and not tg.docs,
           f"mandou {len(tg.enviadas)} msg e {len(tg.docs)} doc à toa")
 
-    tg = roda([[msg("gasto", 2)]], relatorio=True)
-    checa("lançou de novo → volta a mandar", len(tg.enviadas) >= 1 and len(tg.docs) == 1)
+    tg = roda([[msg("gasto", 2)]], relatorio=False)
+    checa("novo gasto → volta a falar", len(tg.enviadas) >= 1)
 
-    tg = roda([[]], relatorio=False)
-    checa("run comum sem nada também fica calado", not tg.enviadas)
+    tg = roda([[]], relatorio=True)
+    checa("pedindo o painel explicitamente, ele vem mesmo sem novidade",
+          len(tg.docs) == 1, f"{len(tg.docs)} doc")
 
     sync.CICLO_RAPIDO = 180
 

@@ -747,13 +747,9 @@ def main():
         saida = [r for r in sessao.respostas if r != "__RELATORIO__"]
         pediu_painel = "__RELATORIO__" in sessao.respostas
 
-        # O relatório das 08h/20h só sai se aconteceu alguma coisa desde o último.
-        # Sem isso vira mensagem diária dizendo o mesmo, e mensagem que não traz
-        # novidade treina você a ignorar as que trazem.
-        maior_id = max((int(l["id"]) for l in sessao.linhas
-                        if str(l["id"]).isdigit()), default=0)
-        tem_novidade = maior_id > int(state.get("ultimo_id_relatado", 0))
-        relatorio = completo and passada == 1 and tem_novidade
+        # Não existe relatório por horário. O bot só abre a boca quando o custo
+        # mudou (lançou, corrigiu, apagou) ou quando tem lembrete pra dar.
+        relatorio = completo and passada == 1
 
         if parou:
             avisar_uma_vez(tg, state, parou)
@@ -780,9 +776,10 @@ def main():
             except Exception:
                 traceback.print_exc()  # painel quebrado não pode invalidar o ledger
 
-        if sessao.novos or relatorio or pediu_painel:
+        # `mudou` cobre lançamento, correção, exclusão e mudança de orçamento —
+        # exatamente os casos em que o quanto você tem disponível mudou.
+        if sessao.mudou or relatorio or pediu_painel:
             saida.append(montar_resumo(sessao.linhas, sessao.orcamento, sessao.novos))
-            state["ultimo_id_relatado"] = maior_id
 
         # Silêncio quando não houve nada: um bot que fala à toa você silencia,
         # e aí perde também o aviso que importava.

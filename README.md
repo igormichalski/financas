@@ -151,18 +151,21 @@ com os seus números. O painel nasce com contexto em vez de vazio.
 
 ### Quando o bot fala (e quando não fala)
 
+**Não existe relatório por horário.** O bot só abre a boca em dois casos: **mudou custo**
+ou **tem lembrete**.
+
 | Situação | Fala? |
 |---|---|
-| Você lançou algo | ✅ confirma na hora |
+| Lançou, corrigiu ou apagou algo | ✅ confirma + resumo |
+| Mudou orçamento ou fechou semana | ✅ |
 | Você perguntou algo | ✅ responde |
-| 08h/20h **com** lançamento novo desde o último relatório | ✅ resumo + painel |
-| 08h/20h **sem** novidade nenhuma | ❌ silêncio |
-| Ciclo sem mensagem nova | ❌ silêncio |
-| Fatura fechando, recorrente sumido, erro | ✅ avisa uma vez |
+| Você pediu o painel | ✅ manda o HTML |
+| Fatura fechando, recorrente sumido, pai não mandou | ✅ avisa **uma vez** |
+| Erro que travou a fila | ✅ avisa com o motivo |
+| Ciclo sem nada acontecendo | ❌ silêncio |
 
-Relatório que chega todo dia dizendo a mesma coisa treina você a ignorar — e aí você
-perde junto o aviso que importava. Por isso o resumo periódico só sai quando tem
-lançamento novo desde a última vez que ele foi enviado.
+Mensagem que chega todo dia dizendo a mesma coisa treina você a ignorar o chat — e aí
+você perde junto o aviso que importava. O painel só vai quando pedido: *"me manda o painel"*.
 
 ### Os fixos (academia, YouTube, Spotify, iFood Club)
 
