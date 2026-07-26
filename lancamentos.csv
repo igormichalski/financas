@@ -7,3 +7,4 @@ id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianc
 6,2026-07-25T19:47:22-04:00,2026-07-25,gasto,134.33,B,Mercado/Supermercado,mercado,nao_informado,,telegram,alta,dito,"134,33 mercado conta B",12#0
 7,2026-07-25T19:47:32-04:00,2026-07-25,gasto,44.5,A,Restaurantes/Lanches,restaurante,nao_informado,,telegram,alta,padrao_categoria,restaurante 4450 e outro restaurante de 450,13#0
 8,2026-07-25T19:47:32-04:00,2026-07-25,gasto,4.5,A,Restaurantes/Lanches,outro restaurante,nao_informado,,telegram,alta,padrao_categoria,restaurante 4450 e outro restaurante de 450,13#1
+9,2026-07-25T20:56:50-04:00,2026-07-25,gasto,32.99,A,Restaurantes/Lanches,bento lanches restaurante,nao_informado,,telegram,alta,padrao_categoria,"32,99 bento lanches restaurante",25#0
