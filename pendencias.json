@@ -1,17 +1,3 @@
 {
-  "abertas": [
-    {
-      "id": "a1c3576b",
-      "tipo": "recorrente_cobranca",
-      "pergunta": "🔁 iFood Club (R$ 5,95) ainda não apareceu esse mês — pagou?",
-      "criada": "2026-07-26T18:00:10-04:00",
-      "msg_id": null,
-      "dados": {
-        "nome": "iFood Club",
-        "categoria": "iFood Club",
-        "valor": 5.95,
-        "dia_limite": 20
-      }
-    }
-  ]
+  "abertas": []
 }
