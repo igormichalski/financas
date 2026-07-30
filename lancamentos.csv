@@ -16,3 +16,4 @@ id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianc
 15,2026-07-27T13:00:12-04:00,2026-07-27,gasto,19.08,B,Viagem/Passagens,passagens,nao_informado,,telegram,alta,dito,"19,08 em passagens conta B",50#0
 16,2026-07-27T13:00:17-04:00,2026-07-27,gasto,121.5,B,Mercado/Supermercado,mercado,nao_informado,,telegram,alta,dito,"121,50 mercado conta B",51#0
 17,2026-07-28T10:00:20-04:00,2026-07-28,gasto,68.89,A,Outros,presente agatha 4 anos de namoro,nao_informado,,telegram,alta,padrao_categoria,"68,89 presente agatha 4 anos de namoro",53#0
+18,2026-07-29T20:30:13-04:00,2026-07-29,gasto,180.0,A,Outros,manutenção celular,nao_informado,,telegram,alta,padrao_categoria,180 manutenção celular,58#0
