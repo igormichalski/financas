@@ -18,3 +18,4 @@ id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianc
 17,2026-07-28T10:00:20-04:00,2026-07-28,gasto,68.89,A,Outros,presente agatha 4 anos de namoro,nao_informado,,telegram,alta,padrao_categoria,"68,89 presente agatha 4 anos de namoro",53#0
 18,2026-07-29T20:30:13-04:00,2026-07-29,gasto,180.0,A,Outros,manutenção celular,nao_informado,,telegram,alta,padrao_categoria,180 manutenção celular,58#0
 19,2026-07-30T16:00:12-04:00,2026-07-30,gasto,20.0,A,Restaurantes/Lanches,ingresso cinema,nao_informado,,telegram,alta,padrao_categoria,20 reias ingresso cinema,63#0
+20,2026-07-30T19:30:17-04:00,2026-07-30,gasto,31.96,B,Mercado/Supermercado,frango,nao_informado,,telegram,alta,dito,"31,96 frango conta B",65#0
