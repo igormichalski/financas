@@ -249,12 +249,7 @@ def novo_lancamento(linhas: list[dict], **campos) -> dict:
     
     mes_ref = campos.get("mes_ref")
     if not mes_ref:
-        state = ler_state()
-        mes_aberto = state.get("mes_conta_a")
-        if conta == "A" and mes_aberto and d[:7] > mes_aberto:
-            mes_ref = mes_aberto
-        else:
-            mes_ref = d[:7]
+        mes_ref = d[:7]
 
     return {
         "id": str(campos.get("id") or proximo_id(linhas)),

@@ -242,7 +242,7 @@ def bloco_fatura(linhas):
 
 
 def bloco_historico(linhas):
-    meses = sorted({l["data"][:7] for l in linhas if l["tipo"] == "gasto"})[-12:]
+    meses = sorted({D.mes_de(l) for l in linhas if l["tipo"] == "gasto"})[-12:]
     if len(meses) < 2:
         return ""
     dados = [(m, D.gastos_do_mes(linhas, m, "A"), D.gastos_do_mes(linhas, m, "B")) for m in meses]
@@ -322,7 +322,7 @@ def kpis(linhas, orcamento, mes):
 def gerar(linhas=None, orcamento=None, saida=SAIDA) -> str:
     linhas = D.ler_lancamentos() if linhas is None else linhas
     orcamento = D.ler_orcamento() if orcamento is None else orcamento
-    mes = D.hoje().isoformat()[:7]
+    mes = D.mes_aberto_a()
 
     corpo = (
         '<header><p class="eyebrow">Controle financeiro</p>'
