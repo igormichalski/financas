@@ -516,24 +516,7 @@ class Sessao:
         # intenção "nenhuma": silêncio total, de propósito.
 
     def fechar_mes(self, msg_id):
-        state = D.ler_state()
-        atual = D.mes_aberto_a()
-        
-        hoje_mes = D.hoje().isoformat()[:7]
-        if atual < hoje_mes:
-            novo_mes = hoje_mes
-        else:
-            ano, m = int(atual[:4]), int(atual[5:7])
-            m += 1
-            if m > 12:
-                ano += 1
-                m = 1
-            novo_mes = f"{ano:04d}-{m:02d}"
-        
-        state["mes_conta_a"] = novo_mes
-        D.gravar_state(state)
-        self.mudou = True
-        self.respostas.append(f"🗓 Mês da conta A fechado! Começando ciclo de {novo_mes[5:]}/{novo_mes[2:4]}.")
+        self.respostas.append("🗓 O mês da conta A agora fecha automaticamente todo dia 10! Não precisa mais fazer isso.")
 
 # ---------------------------------------------------------------- avisos
 

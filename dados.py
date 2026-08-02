@@ -249,7 +249,7 @@ def novo_lancamento(linhas: list[dict], **campos) -> dict:
     
     mes_ref = campos.get("mes_ref")
     if not mes_ref:
-        mes_ref = d[:7]
+        mes_ref = ciclo_de(d)
 
     return {
         "id": str(campos.get("id") or proximo_id(linhas)),
@@ -379,8 +379,20 @@ def gasto_no_ciclo(linhas: list[dict], ciclo: dict) -> float:
 # ---------------------------------------------------------------- agregações
 
 
+def ciclo_de(d_str: str) -> str:
+    try:
+        d = date.fromisoformat(d_str[:10])
+    except ValueError:
+        return d_str[:7]
+    if d.day < 10:
+        if d.month == 1:
+            return f"{d.year - 1:04d}-12"
+        else:
+            return f"{d.year:04d}-{d.month - 1:02d}"
+    return f"{d.year:04d}-{d.month:02d}"
+
 def mes_aberto_a() -> str:
-    return ler_state().get("mes_conta_a") or hoje().isoformat()[:7]
+    return ciclo_de(hoje().isoformat())
 
 def mes_de(l: dict | str) -> str:
     if isinstance(l, dict):
