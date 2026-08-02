@@ -1,23 +1,23 @@
-id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianca,conta_origem,transcricao,msg_id
-1,2026-07-25T19:44:29-03:00,2026-07-25,gasto,23.9,A,Streaming,Spotify,nao_informado,,telegram,alta,padrao_categoria,"Spotify pago, yt pago",8#0
-2,2026-07-25T19:44:29-03:00,2026-07-25,gasto,26.9,A,Streaming,YouTube Premium,nao_informado,,telegram,alta,padrao_categoria,"Spotify pago, yt pago",8#1
-3,2026-07-25T19:47:03-04:00,2026-07-25,gasto,18.4,A,Restaurantes/Lanches,Sorvete Naesquimo Primavera do Leste,nao_informado,,telegram,alta,padrao_categoria,"Sorvete de R$ 18,40 em Primavera do Leste Naesquimo",9#0
-4,2026-07-25T19:47:11-04:00,2026-07-25,gasto,9.99,B,Transporte/App,Uber,nao_informado,,telegram,alta,dito,"Uber de 9,99 lançar na conta B",10#0
-5,2026-07-25T19:47:16-04:00,2026-07-25,gasto,100.0,B,Outros,Borracharia,nao_informado,,telegram,alta,dito,Borracharia 100 reias conta B,11#0
-6,2026-07-25T19:47:22-04:00,2026-07-25,gasto,134.33,B,Mercado/Supermercado,mercado,nao_informado,,telegram,alta,dito,"134,33 mercado conta B",12#0
-7,2026-07-25T19:47:32-04:00,2026-07-25,gasto,44.5,A,Restaurantes/Lanches,restaurante,nao_informado,,telegram,alta,padrao_categoria,restaurante 4450 e outro restaurante de 450,13#0
-8,2026-07-25T19:47:32-04:00,2026-07-25,gasto,4.5,A,Restaurantes/Lanches,outro restaurante,nao_informado,,telegram,alta,padrao_categoria,restaurante 4450 e outro restaurante de 450,13#1
-9,2026-07-25T20:56:50-04:00,2026-07-25,gasto,32.99,A,Restaurantes/Lanches,bento lanches restaurante,nao_informado,,telegram,alta,padrao_categoria,"32,99 bento lanches restaurante",25#0
-10,2026-07-26T07:51:24-04:00,2026-07-26,receita,250.0,B,Outros,ajuda do pai,nao_informado,,telegram,alta,dito,Meu pai mandou 250,37#0
-11,2026-07-26T15:30:12-04:00,2026-07-26,gasto,24.0,A,Restaurantes/Lanches,padaria,nao_informado,,telegram,alta,padrao_categoria,24 reais de padaria,42#0
-12,2026-07-26T15:30:18-04:00,2026-07-26,gasto,3.98,A,Restaurantes/Lanches,todinhos na padaria,nao_informado,,telegram,alta,padrao_categoria,"3,98 todinhos na padaria",43#0
-13,2026-07-26T16:30:15-04:00,2026-07-26,gasto,70.0,B,Combustível,posto,nao_informado,,telegram,alta,padrao_categoria,Gastei 70 reais no posto,45#0
-14,2026-07-26T21:30:09-04:00,2026-07-26,gasto,44.0,A,Restaurantes/Lanches,jantar no spetus dourados,nao_informado,,telegram,alta,padrao_categoria,44 reais jantar no spetus dourados,48#0
-15,2026-07-27T13:00:12-04:00,2026-07-27,gasto,19.08,B,Viagem/Passagens,passagens,nao_informado,,telegram,alta,dito,"19,08 em passagens conta B",50#0
-16,2026-07-27T13:00:17-04:00,2026-07-27,gasto,121.5,B,Mercado/Supermercado,mercado,nao_informado,,telegram,alta,dito,"121,50 mercado conta B",51#0
-17,2026-07-28T10:00:20-04:00,2026-07-28,gasto,68.89,A,Outros,presente agatha 4 anos de namoro,nao_informado,,telegram,alta,padrao_categoria,"68,89 presente agatha 4 anos de namoro",53#0
-18,2026-07-29T20:30:13-04:00,2026-07-29,gasto,180.0,A,Outros,manutenção celular,nao_informado,,telegram,alta,padrao_categoria,180 manutenção celular,58#0
-19,2026-07-30T16:00:12-04:00,2026-07-30,gasto,20.0,A,Restaurantes/Lanches,ingresso cinema,nao_informado,,telegram,alta,padrao_categoria,20 reias ingresso cinema,63#0
-20,2026-07-30T19:30:17-04:00,2026-07-30,gasto,31.96,B,Mercado/Supermercado,frango,nao_informado,,telegram,alta,dito,"31,96 frango conta B",65#0
-21,2026-08-01T22:30:23-04:00,2026-08-01,gasto,54.0,A,Restaurantes/Lanches,lanche beco burguer,nao_informado,,telegram,alta,padrao_categoria,54 lanche beco burguer,71#0
-22,2026-08-01T22:33:25-04:00,2026-08-01,gasto,123.99,B,Mercado/Supermercado,mercado,nao_informado,,telegram,alta,dito,Foi mercado conta B,74#0
+id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianca,conta_origem,transcricao,msg_id,mes_ref
+1,2026-07-25T19:44:29-03:00,2026-07-25,gasto,23.9,A,Streaming,Spotify,nao_informado,,telegram,alta,padrao_categoria,"Spotify pago, yt pago",8#0,2026-07
+2,2026-07-25T19:44:29-03:00,2026-07-25,gasto,26.9,A,Streaming,YouTube Premium,nao_informado,,telegram,alta,padrao_categoria,"Spotify pago, yt pago",8#1,2026-07
+3,2026-07-25T19:47:03-04:00,2026-07-25,gasto,18.4,A,Restaurantes/Lanches,Sorvete Naesquimo Primavera do Leste,nao_informado,,telegram,alta,padrao_categoria,"Sorvete de R$ 18,40 em Primavera do Leste Naesquimo",9#0,2026-07
+4,2026-07-25T19:47:11-04:00,2026-07-25,gasto,9.99,B,Transporte/App,Uber,nao_informado,,telegram,alta,dito,"Uber de 9,99 lançar na conta B",10#0,2026-07
+5,2026-07-25T19:47:16-04:00,2026-07-25,gasto,100.0,B,Outros,Borracharia,nao_informado,,telegram,alta,dito,Borracharia 100 reias conta B,11#0,2026-07
+6,2026-07-25T19:47:22-04:00,2026-07-25,gasto,134.33,B,Mercado/Supermercado,mercado,nao_informado,,telegram,alta,dito,"134,33 mercado conta B",12#0,2026-07
+7,2026-07-25T19:47:32-04:00,2026-07-25,gasto,44.5,A,Restaurantes/Lanches,restaurante,nao_informado,,telegram,alta,padrao_categoria,restaurante 4450 e outro restaurante de 450,13#0,2026-07
+8,2026-07-25T19:47:32-04:00,2026-07-25,gasto,4.5,A,Restaurantes/Lanches,outro restaurante,nao_informado,,telegram,alta,padrao_categoria,restaurante 4450 e outro restaurante de 450,13#1,2026-07
+9,2026-07-25T20:56:50-04:00,2026-07-25,gasto,32.99,A,Restaurantes/Lanches,bento lanches restaurante,nao_informado,,telegram,alta,padrao_categoria,"32,99 bento lanches restaurante",25#0,2026-07
+10,2026-07-26T07:51:24-04:00,2026-07-26,receita,250.0,B,Outros,ajuda do pai,nao_informado,,telegram,alta,dito,Meu pai mandou 250,37#0,2026-07
+11,2026-07-26T15:30:12-04:00,2026-07-26,gasto,24.0,A,Restaurantes/Lanches,padaria,nao_informado,,telegram,alta,padrao_categoria,24 reais de padaria,42#0,2026-07
+12,2026-07-26T15:30:18-04:00,2026-07-26,gasto,3.98,A,Restaurantes/Lanches,todinhos na padaria,nao_informado,,telegram,alta,padrao_categoria,"3,98 todinhos na padaria",43#0,2026-07
+13,2026-07-26T16:30:15-04:00,2026-07-26,gasto,70.0,B,Combustível,posto,nao_informado,,telegram,alta,padrao_categoria,Gastei 70 reais no posto,45#0,2026-07
+14,2026-07-26T21:30:09-04:00,2026-07-26,gasto,44.0,A,Restaurantes/Lanches,jantar no spetus dourados,nao_informado,,telegram,alta,padrao_categoria,44 reais jantar no spetus dourados,48#0,2026-07
+15,2026-07-27T13:00:12-04:00,2026-07-27,gasto,19.08,B,Viagem/Passagens,passagens,nao_informado,,telegram,alta,dito,"19,08 em passagens conta B",50#0,2026-07
+16,2026-07-27T13:00:17-04:00,2026-07-27,gasto,121.5,B,Mercado/Supermercado,mercado,nao_informado,,telegram,alta,dito,"121,50 mercado conta B",51#0,2026-07
+17,2026-07-28T10:00:20-04:00,2026-07-28,gasto,68.89,A,Outros,presente agatha 4 anos de namoro,nao_informado,,telegram,alta,padrao_categoria,"68,89 presente agatha 4 anos de namoro",53#0,2026-07
+18,2026-07-29T20:30:13-04:00,2026-07-29,gasto,180.0,A,Outros,manutenção celular,nao_informado,,telegram,alta,padrao_categoria,180 manutenção celular,58#0,2026-07
+19,2026-07-30T16:00:12-04:00,2026-07-30,gasto,20.0,A,Restaurantes/Lanches,ingresso cinema,nao_informado,,telegram,alta,padrao_categoria,20 reias ingresso cinema,63#0,2026-07
+20,2026-07-30T19:30:17-04:00,2026-07-30,gasto,31.96,B,Mercado/Supermercado,frango,nao_informado,,telegram,alta,dito,"31,96 frango conta B",65#0,2026-07
+21,2026-08-01T22:30:23-04:00,2026-08-01,gasto,54.0,A,Restaurantes/Lanches,lanche beco burguer,nao_informado,,telegram,alta,padrao_categoria,54 lanche beco burguer,71#0,2026-08
+22,2026-08-01T22:33:25-04:00,2026-08-01,gasto,123.99,B,Mercado/Supermercado,mercado,nao_informado,,telegram,alta,dito,Foi mercado conta B,74#0,2026-08

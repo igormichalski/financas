@@ -37,7 +37,7 @@ VENCIMENTO = 22
 CAMPOS = [
     "id", "ts", "data", "tipo", "valor", "conta", "categoria", "descricao",
     "pagamento", "fatura", "origem", "confianca", "conta_origem",
-    "transcricao", "msg_id",
+    "transcricao", "msg_id", "mes_ref"
 ]
 
 CATEGORIAS = [
@@ -209,6 +209,8 @@ def ler_lancamentos() -> list[dict]:
             continue  # linha editada à mão e quebrada não derruba o run inteiro
         for c in CAMPOS:
             l.setdefault(c, "")
+        if not l.get("mes_ref"):
+            l["mes_ref"] = l["data"][:7]
         boas.append(l)
     return boas
 
@@ -244,6 +246,15 @@ def novo_lancamento(linhas: list[dict], **campos) -> dict:
 
     # Fatura só existe pra crédito: débito, Pix e dinheiro saem no dia.
     fatura = fatura_de(date.fromisoformat(d)) if pagamento == "credito" else ""
+    
+    mes_ref = campos.get("mes_ref")
+    if not mes_ref:
+        state = ler_state()
+        mes_aberto = state.get("mes_conta_a")
+        if conta == "A" and mes_aberto and d[:7] > mes_aberto:
+            mes_ref = mes_aberto
+        else:
+            mes_ref = d[:7]
 
     return {
         "id": str(campos.get("id") or proximo_id(linhas)),
@@ -261,6 +272,7 @@ def novo_lancamento(linhas: list[dict], **campos) -> dict:
         "conta_origem": conta_origem,
         "transcricao": campos.get("transcricao") or "",
         "msg_id": str(campos.get("msg_id") or ""),
+        "mes_ref": mes_ref,
     }
 
 
@@ -372,14 +384,19 @@ def gasto_no_ciclo(linhas: list[dict], ciclo: dict) -> float:
 # ---------------------------------------------------------------- agregações
 
 
-def mes_de(iso: str) -> str:
-    return iso[:7]
+def mes_aberto_a() -> str:
+    return ler_state().get("mes_conta_a") or hoje().isoformat()[:7]
+
+def mes_de(l: dict | str) -> str:
+    if isinstance(l, dict):
+        return l.get("mes_ref") or l["data"][:7]
+    return l[:7]
 
 
 def gastos_do_mes(linhas: list[dict], mes: str, conta: str = "A") -> float:
     return sum(
         l["valor"] for l in linhas
-        if l["conta"] == conta and l["tipo"] == "gasto" and mes_de(l["data"]) == mes
+        if l["conta"] == conta and l["tipo"] == "gasto" and mes_de(l) == mes
     )
 
 
@@ -387,14 +404,14 @@ def receitas_do_mes(linhas: list[dict], mes: str, conta: str = "A") -> float:
     """Dinheiro que entrou fora do salário: amigo pagou, reembolso, freela."""
     return sum(
         l["valor"] for l in linhas
-        if l["conta"] == conta and l["tipo"] == "receita" and mes_de(l["data"]) == mes
+        if l["conta"] == conta and l["tipo"] == "receita" and mes_de(l) == mes
     )
 
 
 def por_categoria(linhas: list[dict], mes: str, conta: str = "A") -> dict[str, float]:
     fora = {}
     for l in linhas:
-        if l["conta"] != conta or l["tipo"] != "gasto" or mes_de(l["data"]) != mes:
+        if l["conta"] != conta or l["tipo"] != "gasto" or mes_de(l) != mes:
             continue
         fora[l["categoria"]] = round(fora.get(l["categoria"], 0) + l["valor"], 2)
     return dict(sorted(fora.items(), key=lambda kv: -kv[1]))

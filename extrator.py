@@ -37,7 +37,7 @@ def _config(modelo: str, schema: dict) -> dict:
 
 INTENCOES = [
     "gasto", "receita", "consulta", "correcao", "exclusao",
-    "orcamento", "recorrente", "fatura", "relatorio", "confirmacao", "nenhuma",
+    "orcamento", "recorrente", "fatura", "relatorio", "confirmacao", "fechar_mes", "nenhuma",
 ]
 
 SCHEMA = {
@@ -128,6 +128,7 @@ Na dúvida entre A e B nunca chute calado: ou tem palavra dita, ou está dentro 
 - recorrente: "todo mês pago 110 de academia" → alvo com nome/valor.
 - fatura: "quanto tá a fatura?", "quando fecha o cartão?" → responda em `resposta`.
 - relatorio: "me manda o painel", "como tô esse mês?".
+- fechar_mes: "fechou o mes", "virou o mes", "reinicia" → preencha intencao=fechar_mes.
 - confirmacao: ele está respondendo uma pergunta sua que está aberta (veja pendências abaixo).
   Um "sim", "não", "foi 120", "é meu" isolado quase sempre é isso.
 - nenhuma: mandou áudio/texto que não tem nada a ver com dinheiro. Fique CALADO, lista vazia,

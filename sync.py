@@ -82,8 +82,8 @@ def responder_consulta(linhas, c: dict) -> str:
     elif periodo == "tudo":
         alvo, rotulo = lambda l: True, "no total"
     else:
-        mes = hoje.isoformat()[:7]
-        alvo, rotulo = lambda l: l["data"][:7] == mes, "esse mês"
+        mes = D.mes_aberto_a()
+        alvo, rotulo = lambda l: D.mes_de(l) == mes, "esse mês"
 
     sel = [l for l in linhas if l["tipo"] == "gasto" and alvo(l)]
     if conta in ("A", "B"):
@@ -179,7 +179,7 @@ def montar_resumo(linhas, orcamento, novos=()) -> str:
                 partes.append(f"🎙 <i>{l['transcricao'][:110]}</i>")
         partes.append(TRACO)
 
-    mes = D.hoje().isoformat()[:7]
+    mes = D.mes_aberto_a()
     renda = float(orcamento.get("A", {}).get("renda") or 0)
     gasto_a = D.gastos_do_mes(linhas, mes, "A")
     extra = D.receitas_do_mes(linhas, mes, "A")
@@ -511,8 +511,29 @@ class Sessao:
             self.recorrente(out, msg_id)
         elif intencao == "relatorio":
             self.respostas.append("__RELATORIO__")
+        elif intencao == "fechar_mes":
+            self.fechar_mes(msg_id)
         # intenção "nenhuma": silêncio total, de propósito.
 
+    def fechar_mes(self, msg_id):
+        state = D.ler_state()
+        atual = D.mes_aberto_a()
+        
+        hoje_mes = D.hoje().isoformat()[:7]
+        if atual < hoje_mes:
+            novo_mes = hoje_mes
+        else:
+            ano, m = int(atual[:4]), int(atual[5:7])
+            m += 1
+            if m > 12:
+                ano += 1
+                m = 1
+            novo_mes = f"{ano:04d}-{m:02d}"
+        
+        state["mes_conta_a"] = novo_mes
+        D.gravar_state(state)
+        self.mudou = True
+        self.respostas.append(f"🗓 Mês da conta A fechado! Começando ciclo de {novo_mes[5:]}/{novo_mes[2:4]}.")
 
 # ---------------------------------------------------------------- avisos
 
@@ -540,13 +561,13 @@ def avisos(sessao, state):
         uma_vez(f"vence-{vence}", f"💳 Fatura vence em {dias_v} dia(s) — {vence.strftime('%d/%m')}.")
 
     # Recorrente que não apareceu: pergunta uma vez, nunca lança sozinho.
-    mes = hoje.isoformat()[:7]
+    mes = D.mes_aberto_a()
     if not sessao.pend.get("abertas"):
         for item in D.ler_recorrentes().get("itens", []):
             if hoje.day < item.get("dia_limite", 20):
                 continue
             achou = any(
-                l["categoria"] == item["categoria"] and l["data"][:7] == mes
+                l["categoria"] == item["categoria"] and D.mes_de(l) == mes
                 and abs(l["valor"] - item["valor"]) < max(2.0, item["valor"] * 0.2)
                 for l in sessao.linhas
             )
@@ -573,7 +594,7 @@ def avisos(sessao, state):
 def revisao_mensal(sessao, state, api_key):
     """Todo dia 1º a IA propõe ajuste nos esperados. Propõe — quem aprova é ele."""
     hoje = D.hoje()
-    mes = hoje.isoformat()[:7]
+    mes = D.mes_aberto_a()
     if hoje.day != 1 or state.setdefault("avisos", {}).get(f"revisao-{mes}"):
         return None
     state["avisos"][f"revisao-{mes}"] = hoje.isoformat()
