@@ -23,3 +23,4 @@ id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianc
 22,2026-08-01T22:33:25-04:00,2026-08-01,gasto,123.99,B,Mercado/Supermercado,mercado,nao_informado,,telegram,alta,dito,Foi mercado conta B,74#0,2026-07
 23,2026-08-02T19:45:51-04:00,2026-08-02,receita,350.0,B,Outros,ajuda do pai,nao_informado,,telegram,alta,dito,Meu pai mandou 350,92#0,2026-07
 24,2026-08-02T19:45:57-04:00,2026-08-02,gasto,32.97,A,Restaurantes/Lanches,sorvete 60 sabores,nao_informado,,telegram,alta,padrao_categoria,"32,97 sorvete 60 sabores",93#0,2026-07
+25,2026-08-03T10:30:15-04:00,2026-08-03,gasto,50.0,A,Psicóloga,psicologa,nao_informado,,telegram,alta,padrao_categoria,50 reais pisicologa,95#0,2026-07
