@@ -628,6 +628,7 @@ def limpar_erro(state, chave):
 
 
 import glob
+import json
 
 def coletar(tg, state):
     """Lê as mensagens (via Webhook na inbox/ ou via Polling) e joga na fila persistida."""
