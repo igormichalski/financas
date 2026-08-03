@@ -11,57 +11,48 @@ Nada roda no seu computador. Custo: R$ 0,00.
 
 ## Como funciona (e o que fica ligado)
 
-**Nada fica ligado.** Seu computador pode estar desligado. O runner do GitHub vive uns 40
-segundos, faz o trabalho e morre. Entre um ciclo e outro o sistema não existe — só os
-arquivos parados neste repositório.
+**Nada fica ligado.** Seu computador pode estar desligado. O Telegram dispara um Webhook para o Cloudflare, que salva sua mensagem e acorda o GitHub Actions. O processo vive uns 15 segundos, faz o trabalho e morre. 
 
-```
-   VOCÊ                    TELEGRAM                 GITHUB ACTIONS              GEMINI
-   ────                    ────────                 ──────────────              ──────
+```text
+   VOCÊ                   TELEGRAM           CLOUDFLARE         GITHUB ACTIONS         GEMINI
+   ────                   ────────           ──────────         ──────────────         ──────
      │
-     │  🎙 áudio/texto         │
-     ├───────────────────────► │
-     │                         │  guarda até 24h
-     │                         │  (nada acordado aqui)
-     │                         │
-     │                         │        ⏰ a cada 30 min (07h–00h)
-     │                         │        o cron ACORDA o runner
-     │                         │              │
-     │                         │ ◄────────────┤  1. getUpdates
-     │                         ├────────────► │     (marca como lido)
-     │                         │              │
-     │                         │              │  2. grava em fila.json ◄── trava anti-perda
-     │                         │              │     e commita
-     │                         │              │
-     │                         │              ├──────────────────────────► │  3. áudio → JSON
-     │                         │              │ ◄──────────────────────────┤     (transcreve +
-     │                         │              │                                   estrutura)
-     │                         │              │  4. lancamentos.csv
-     │                         │              │     painel.html
-     │                         │              │     git commit + push
-     │                         │              │
-     │  ✅ confirmação         │ ◄────────────┤  5. sendMessage
-     │ ◄───────────────────────┤              │
-     │                         │              │
-     │                         │        💤 runner MORRE
+     │  🎙 áudio/texto        │                  │                    │                   │
+     ├───────────────────────►│                  │                    │                   │
+     │                        │ ⚡️ Webhook      │                    │                   │
+     │                        ├─────────────────►│                    │                   │
+     │                        │                  │ 1. PUT inbox/ID    │                   │
+     │                        │                  ├───────────────────►│ 💾 Grava arquivo  │
+     │                        │                  │ 2. POST dispatch   │                   │
+     │                        │                  ├───────────────────►│ 🚀 ACORDA runner  │
+     │                        │                  │                    │ (enfila se rodando)
+     │                        │                  │                    │                   │
+     │                        │                  │                    │ 3. Lê inbox/*.json│
+     │                        │                  │                    │ 4. Joga pra fila  │
+     │                        │                  │                    │ 5. git rm inbox/  │
+     │                        │                  │                    │                   │
+     │                        │                  │                    ├──────────────────►│ 6. áudio → JSON
+     │                        │                  │                    │◄──────────────────┤
+     │                        │                  │                    │                   │
+     │                        │                  │                    │ 7. lancamentos.csv│
+     │                        │                  │                    │    painel.html    │
+     │                        │                  │                    │ 8. commit + push  │
+     │                        │                  │                    │                   │
+     │  ✅ confirmação        │                  │                    │                   │
+     │◄───────────────────────────────────────────────────────────────┤ 9. sendMessage    │
+     │                        │                  │                    │                   │
+                                                                      💤 runner MORRE
 ```
 
 | Onde | O quê | Some se... |
 |---|---|---|
-| Telegram (servidor) | suas mensagens não lidas | passar 24h |
+| Telegram (servidor) | Webhook dispara instantaneamente | — |
 | GitHub (repo privado) | ledger, orçamento, fila, painel | nunca |
-| GitHub (secrets) | as 3 chaves | você apagar |
-| Runner | o código rodando | sempre, em ~40s |
+| GitHub (secrets) | as chaves | você apagar |
+| Runner | o código rodando | sempre, em ~15s |
 | Seu computador | nada | — |
 
-A `fila.json` existe por causa da primeira linha dessa tabela: ela move suas mensagens do
-lugar que esquece em 24h para o lugar que nunca esquece, **antes** de tentar processar.
-
-### Por que não existe um `/rodar` no Telegram
-
-Entre um ciclo e outro não há nada escutando — ler o Telegram é justamente o que o runner
-faz quando acorda. Um `/rodar` só seria lido no ciclo seguinte, que é o que você queria
-pular. Pra forçar agora, veja a seção abaixo.
+A pasta `inbox/` e a `fila.json` resolvem a concorrência: se você mandar 10 áudios em 5 segundos, o Cloudflare salva 10 arquivos e dispara a Action. O GitHub não deixa duas rodarem ao mesmo tempo, então a primeira lê os 10 de uma vez e processa em lote sem corromper o banco.
 
 ## As duas carteiras
 
@@ -69,8 +60,12 @@ pular. Pra forçar agora, veja a seção abaixo.
 |---|---|---|
 | Dinheiro | seu salário | ajuda do pai |
 | Teto | R$ 1.600/mês | o que ele mandou, por semana |
-| Ciclo | mensal | reseta quando ele manda |
+| Ciclo | automático dia 10 | reseta quando ele manda |
 | Padrão | todo o resto | mercado, combustível, marmita |
+
+### O ciclo da conta A
+
+A fatura/mês da conta A **fecha automaticamente todo dia 10**. Qualquer gasto a partir do dia 11 já é jogado na competência do mês seguinte. Você não precisa fazer nada.
 
 ### O ciclo da conta B
 
@@ -206,62 +201,23 @@ isso é melhor que voz.
 
 ## Quem dispara o sync
 
-O agendador do GitHub **não é confiável** em repositório gratuito — a documentação deles
-chama de "melhor esforço", e na prática já pulou 4 slots seguidos aqui. Por isso ele ficou
-só como rede de segurança (de hora em hora) e quem dispara de verdade é um pinger externo.
+Toda a arquitetura é baseada em **Webhooks em Tempo Real**. Quando você manda a mensagem, o Telegram avisa um *Worker do Cloudflare* que salva o arquivo no GitHub e aperta o "Play" na Action.
+O agendador do GitHub (cron) que roda a cada 30 minutos ficou apenas como **rede de segurança** (fallback), caso o Cloudflare falhe ou algo atrase.
 
-### Configurar o pinger (uma vez, ~5 min)
+### Configurar o Cloudflare (uma vez, ~5 min)
 
-**1. Criar o token** em [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new):
+O código completo do Worker está no arquivo `cloudflare_worker.js`.
 
-| Campo | Valor |
-|---|---|
-| Token name | `pinger-financas` |
-| Expiration | 1 year (anote pra renovar) |
-| Repository access | **Only select repositories** → `financas` |
-| Permissions → Actions | **Read and write** |
-
-Só isso. Esse token não abre mais nada além de disparar o workflow desse repositório.
-
-**2. Criar o job** em [cron-job.org](https://console.cron-job.org) (grátis, cadastro com e-mail):
-
-| Campo | Valor |
-|---|---|
-| URL | `https://api.github.com/repos/igormichalski/financas/actions/workflows/sync.yml/dispatches` |
-| Method | `POST` |
-| Schedule | a cada **15 minutos**, das **07:00 às 00:00** |
-| Timezone | `America/Campo_Grande` |
-
-Em **Headers**:
-```
-Authorization: Bearer SEU_TOKEN_AQUI
-Accept: application/vnd.github+json
-Content-Type: application/json
-```
-
-Em **Request body**:
-```json
-{"ref":"main"}
-```
-
-Resposta esperada: **204 No Content**. Se vier 401 o token está errado; 404 quase sempre é
-permissão de Actions faltando no token.
-
-### Por que 15 minutos
-
-O GitHub cobra Actions por minuto **arredondado pra cima**, então cada disparo custa 1 minuto
-mesmo durando 20 segundos:
-
-| Intervalo | Runs/dia | Minutos/mês | Cabe nos 3.000? |
-|---|---|---|---|
-| 5 min | 204 | ~6.120 | ❌ |
-| 10 min | 102 | ~3.060 | ❌ |
-| **15 min** | **68** | **~2.040** | ✅ |
-| 20 min | 51 | ~1.530 | ✅ |
-
-Com o cron de hora em hora somando mais ~17/dia, o total fica em ~2.550 min/mês. E lembre
-que a cadência adaptativa abaixo já dá resposta de 3 em 3 minutos **depois** que um run
-começa e encontra movimento.
+1. **Criar o token** em [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new):
+   - **Repository access**: `Only select repositories` → `financas`
+   - **Permissions → Contents e Actions**: `Read and write`
+   
+2. **Criar o Worker** no Cloudflare:
+   - Cole o código de `cloudflare_worker.js` no `Edit Code`.
+   - Na aba **Settings → Variables and Secrets**, adicione o segredo `GH_TOKEN` com o token gerado no passo 1.
+   
+3. **Ligar o Telegram**:
+   - Acesse no navegador: `https://api.telegram.org/bot<SEU_TOKEN_TELEGRAM>/setWebhook?url=<URL_DO_SEU_WORKER>`
 
 ## Cadência adaptativa
 
