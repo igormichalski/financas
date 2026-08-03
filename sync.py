@@ -627,31 +627,46 @@ def limpar_erro(state, chave):
     state.setdefault("erros", {}).pop(chave, None)
 
 
-def coletar(tg, state):
-    """Baixa o que chegou e joga na fila persistida ANTES de processar.
+import glob
 
-    O Telegram descarta mensagem não lida depois de 24h. A fila mora no git, então
-    mesmo que o Gemini fique fora do ar dois dias, nada se perde.
-    """
+def coletar(tg, state):
+    """Lê as mensagens (via Webhook na inbox/ ou via Polling) e joga na fila persistida."""
     fila = D.ler_fila()
+    chat_id = str(tg.chat_id)
+    novos = 0
+
+    # 1. Lê da caixa de entrada (Modo Webhook)
+    arquivos = sorted(glob.glob("inbox/*.json"))
+    for arq in arquivos:
+        try:
+            with open(arq, "r") as f:
+                payload = json.load(f)
+            msg = payload.get("message") or {}
+            if str(msg.get("chat", {}).get("id")) == chat_id and not msg.get("from", {}).get("is_bot"):
+                fila.setdefault("pendentes", []).append({"msg": msg, "tentativas": 0})
+                novos += 1
+            os.remove(arq)
+            os.system(f"git rm --ignore-unmatch {arq} 2>/dev/null")
+        except Exception as e:
+            print(f"Erro lendo inbox {arq}: {e}")
+
+    # 2. Lê do Telegram (Modo Polling)
     offset = state.get("offset", 0)
     try:
         updates = tg.updates(offset)
+        for u in sorted(updates, key=lambda x: x["update_id"]):
+            state["offset"] = u["update_id"] + 1
+            msg = u.get("message") or {}
+            if str(msg.get("chat", {}).get("id")) != chat_id:
+                continue
+            if msg.get("from", {}).get("is_bot"):
+                continue
+            fila.setdefault("pendentes", []).append({"msg": msg, "tentativas": 0})
+            novos += 1
     except erros.ErroSistema as e:
-        avisar_uma_vez(tg, state, e)
-        return fila, 0  # sem novidade: processa o que já estava na fila
-
-    chat_id = tg.chat_id
-    novos = 0
-    for u in sorted(updates, key=lambda x: x["update_id"]):
-        state["offset"] = u["update_id"] + 1
-        msg = u.get("message") or {}
-        if str(msg.get("chat", {}).get("id")) != str(chat_id):
-            continue
-        if msg.get("from", {}).get("is_bot"):
-            continue
-        fila.setdefault("pendentes", []).append({"msg": msg, "tentativas": 0})
-        novos += 1
+        # Se o Webhook estiver ativo, o Telegram bloqueia o getUpdates. Tudo bem.
+        if "webhook is active" not in str(e).lower():
+            avisar_uma_vez(tg, state, e)
 
     D.gravar_fila(fila)
     D.gravar_state(state)
