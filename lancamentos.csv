@@ -25,3 +25,4 @@ id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianc
 24,2026-08-02T19:45:57-04:00,2026-08-02,gasto,32.97,A,Restaurantes/Lanches,sorvete 60 sabores,nao_informado,,telegram,alta,padrao_categoria,"32,97 sorvete 60 sabores",93#0,2026-07
 25,2026-08-03T10:30:15-04:00,2026-08-03,gasto,50.0,A,Psicóloga,psicologa,nao_informado,,telegram,alta,padrao_categoria,50 reais pisicologa,95#0,2026-07
 26,2026-08-04T09:50:12-04:00,2026-08-04,gasto,70.0,B,Combustível,combustível,nao_informado,,telegram,alta,dito,70 combustível conta B,112#0,2026-07
+27,2026-08-04T10:04:53-04:00,2026-08-04,gasto,118.4,A,Serviços online/Tech,claude ia,nao_informado,,telegram,alta,padrao_categoria,"118,40 claude ia",113#0,2026-07
