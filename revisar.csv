@@ -1,3 +1,4 @@
 ts,motivo,transcricao
 2026-07-26T18:00:10-04:00,pendência expirada (recorrente_cobranca),"🔁 Academia (Iron Gym) (R$ 110,00) ainda não apareceu esse mês — pagou?"
 2026-07-27T18:00:10-04:00,pendência expirada (recorrente_cobranca),"🔁 iFood Club (R$ 5,95) ainda não apareceu esse mês — pagou?"
+2026-08-05T08:29:20-04:00,correção aplicada à mão (bug: correção do Telegram não pegava),"Corrigir o 26,92 mercado porcarias para cinema, ele deve ir para conta A"

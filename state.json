@@ -1,14 +1,11 @@
 {
-  "offset": 887251794,
+  "offset": 887251806,
   "ultimo_run": "2026-08-05T08:30:15-04:00",
   "avisos": {
     "rec-Academia (Iron Gym)-2026-07": "2026-07-25",
-    "rec-iFood Club-2026-07": "2026-07-26",
-    "revisao-2026-08": "2026-08-01"
+    "rec-iFood Club-2026-07": "2026-07-26"
   },
   "erros": {
     "rede-Telegram": "2026-07-25T19:47:37-03:00"
-  },
-  "ultimo_id_relatado": 9,
-  "mes_conta_a": "2026-07"
+  }
 }
