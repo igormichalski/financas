@@ -59,6 +59,21 @@ export default {
       }
 
       const updateId = body.update_id;
+      const texto = (body.message.text || body.message.caption || "").trim();
+
+      // 3.2. Atalho do painel. O painel.html JÁ é um artefato pronto no repositório,
+      //      gerado pelo último sync — então pedir "painel" é leitura pura: não muda
+      //      ledger, não precisa do Gemini, não precisa do Actions. Mandar direto daqui
+      //      leva ~2s em vez de ~20s.
+      //
+      //      Casa só com a palavra sozinha (com ou sem barra/acento). Qualquer frase
+      //      maior segue o caminho normal, porque aí pode ser outra intenção
+      //      ("me manda o painel e lança 30 de almoço") e adivinhar isso é do Gemini,
+      //      não meu. Errar pra menos aqui só custa 20s; errar pra mais perde lançamento.
+      if (env.TG_TOKEN && /^\/?(painel|relat[oó]rio)$/i.test(texto)) {
+        ctx.waitUntil(mandarPainel(env, body.message.chat.id));
+        return new Response("OK");
+      }
 
       // 3.5. Feedback imediato. O GitHub Actions leva ~20s pra subir um runner, e
       //      silêncio nesse tempo parece que o bot morreu. A reação chega em menos de
@@ -135,3 +150,47 @@ export default {
     }
   }
 };
+
+/**
+ * Manda o painel.html que já está no repositório, direto pro Telegram.
+ *
+ * Roda dentro de ctx.waitUntil, depois do 200 pro Telegram — então pode levar alguns
+ * segundos sem o Telegram achar que o webhook está lento e reentregar.
+ */
+async function mandarPainel(env, chatId) {
+  try {
+    const r = await fetch(
+      `https://api.github.com/repos/${REPO}/contents/painel.html?ref=main`, {
+        headers: {
+          "Authorization": `Bearer ${env.GH_TOKEN}`,
+          "User-Agent": "Cloudflare-Telegram-Worker",
+          "Accept": "application/vnd.github.raw",
+          "X-GitHub-Api-Version": "2022-11-28"
+        }
+      });
+    if (!r.ok) {
+      console.error(`não consegui ler o painel: ${r.status} ${await r.text()}`);
+      return;
+    }
+    const html = await r.arrayBuffer();
+
+    // O painel é gerado pelo último sync. Se você acabou de lançar algo e o sync ainda
+    // não rodou, este arquivo é de antes — por isso a legenda diz de quando ele é, em
+    // vez de deixar você achar que o número já inclui o gasto de agora.
+    const quando = new Date().toLocaleString("pt-BR", { timeZone: "America/Campo_Grande" });
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    form.append("caption", `📊 Painel (versão salva no repositório · consultado ${quando})`);
+    // Blob + nome no terceiro argumento, e não `new File(...)`: é a forma que o runtime
+    // do Workers garante em qualquer versão do compatibility date.
+    form.append("document", new Blob([html], { type: "text/html" }), "painel.html");
+
+    const envio = await fetch(
+      `https://api.telegram.org/bot${env.TG_TOKEN}/sendDocument`, { method: "POST", body: form });
+    if (!envio.ok) {
+      console.error(`sendDocument falhou: ${envio.status} ${await envio.text()}`);
+    }
+  } catch (e) {
+    console.error("atalho do painel falhou:", e);
+  }
+}
