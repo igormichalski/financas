@@ -27,3 +27,4 @@ id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianc
 26,2026-08-04T09:50:12-04:00,2026-08-04,gasto,70.0,B,Combustível,combustível,nao_informado,,telegram,alta,dito,70 combustível conta B,112#0,2026-07
 27,2026-08-04T10:04:53-04:00,2026-08-04,gasto,118.4,A,Serviços online/Tech,claude ia,nao_informado,,telegram,alta,padrao_categoria,"118,40 claude ia",113#0,2026-07
 28,2026-08-04T19:59:29-04:00,2026-08-04,gasto,26.92,A,Mercado/Supermercado,mercado porcarias para cinema,nao_informado,,telegram,alta,dito,"26,92 mercado porcarias para cinema",117#0,2026-07
+29,2026-08-05T12:33:59-04:00,2026-08-05,gasto,3.0,A,Mercado/Supermercado,besteira no mercado,nao_informado,,telegram,alta,dito,3 reais gasto de besteira no mercado ir para conta A. Essa lançamento é outro,145#0,2026-07
