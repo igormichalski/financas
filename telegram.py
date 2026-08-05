@@ -55,8 +55,15 @@ class Telegram:
     # ---------------------------------------------------------- entrada
 
     def updates(self, offset: int):
-        """Mensagens novas. O Telegram guarda o que você não leu por até 24h."""
-        return self._call("getUpdates", offset=offset, timeout=0, allowed_updates=["message"])
+        """Mensagens novas. O Telegram guarda o que você não leu por até 24h.
+
+        tentativas=1 de propósito. Com o webhook ativo o Telegram recusa getUpdates com
+        409, que caía no caso genérico de instabilidade: 3 chamadas e ~3s de sleep
+        queimados em TODO run, num caminho que hoje é só rede de segurança (quem entrega
+        de verdade é a inbox/). Se falhar, o próximo run tenta de novo — não custa nada.
+        """
+        return self._call("getUpdates", tentativas=1, offset=offset, timeout=0,
+                          allowed_updates=["message"])
 
     def baixar(self, file_id: str, limite: int) -> bytes:
         info = self._call("getFile", file_id=file_id)
