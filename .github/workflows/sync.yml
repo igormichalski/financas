@@ -58,6 +58,10 @@ jobs:
       # senão o que já foi baixado do Telegram se perde.
       - name: Commitar o que mudou
         if: always()
+        env:
+          # Precisa aqui também: é este passo que avisa quando o push não vai.
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           git config user.name "financas-bot"
           git config user.email "bot@users.noreply.github.com"
@@ -68,10 +72,48 @@ jobs:
             exit 0
           fi
           git commit -m "sync $(TZ=America/Campo_Grande date '+%d/%m %H:%M')"
+
+          # painel.html e state.json são DERIVADOS e mudam em todo run, então são eles
+          # que fazem o rebase empacar. Resolver por "ours" evita o conflito; o que
+          # importa de verdade (lancamentos.csv) continua sendo mesclado normalmente.
+          # Sem isso, o trabalho do run inteiro ia pro lixo — aconteceu em 04/08.
+          # Cuidado: durante um REBASE, "ours" é o lado de cima (o que já está no
+          # origin), não o nosso. Por isso o painel é refeito logo depois.
+          git config merge.ours.driver true
+          printf '%s\n' \
+            'painel.html merge=ours' \
+            'state.json  merge=ours' > .git/info/attributes
+
           # O push pode colidir com outro run; rebase e tenta de novo.
           for i in 1 2 3; do
-            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && \
+            # Rebase que falha deixa o repositório em estado conflitado, e aí as
+            # tentativas seguintes morrem com "you have unmerged files" sem nem tentar.
+            # Limpar antes é o que torna a retentativa útil.
+            git rebase --abort 2>/dev/null || true
+            git merge --abort 2>/dev/null || true
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || { sleep $((i * 5)); continue; }
+
+            # Já com o ledger mesclado, refaz o painel: ele é 100% derivado, e a
+            # resolução por "ours" acima pode ter deixado a versão antiga no lugar.
+            python3 -c 'import painel; painel.gerar()' || true
+            if ! git diff --quiet -- painel.html; then
+              git add painel.html
+              git commit -q --amend --no-edit
+            fi
+
             git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
-            sleep 5
+            sleep $((i * 5))
           done
+
+          # Chegou aqui, o trabalho deste run vai ser descartado quando o runner morrer.
+          # Falhar calado é o pior caso: você acha que lançou e não lançou.
+          git rebase --abort 2>/dev/null || true
+          AVISO="🔴 <b>Não consegui salvar no GitHub.</b>%0A"
+          AVISO="${AVISO}O que você mandou agora pode não ter sido gravado — confere o painel e manda de novo se faltar.%0A"
+          AVISO="${AVISO}<i>Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}</i>"
+          curl -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "parse_mode=HTML" \
+            -d "text=${AVISO}" >/dev/null || true
           exit 1

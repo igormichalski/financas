@@ -65,7 +65,15 @@ A pasta `inbox/` e a `fila.json` resolvem a concorrência: se você mandar 10 á
 
 ### O ciclo da conta A
 
-A fatura/mês da conta A **fecha automaticamente todo dia 10**. Qualquer gasto a partir do dia 11 já é jogado na competência do mês seguinte. Você não precisa fazer nada.
+O mês da conta A **vira sozinho todo dia 10**, e você não precisa fazer nada. Gasto do dia
+10 em diante já entra no ciclo novo; do dia 9 pra trás ainda conta no ciclo anterior. Um
+gasto de 05/ago, por exemplo, pertence ao ciclo de **julho**.
+
+O ciclo é rotulado pelo mês em que **começou**: o período de 10/jul a 09/ago se chama
+`2026-07`. É esse rótulo que fica na coluna `mes_ref` do `lancamentos.csv`.
+
+> **Isso não é o ciclo da fatura.** O cartão fecha dia 15 e vence dia 22 — outra régua, de
+> propósito. Uma diz quanto do salário você já torrou no mês; a outra, quando o Nubank cobra.
 
 ### O ciclo da conta B
 
@@ -214,10 +222,26 @@ O código completo do Worker está no arquivo `cloudflare_worker.js`.
    
 2. **Criar o Worker** no Cloudflare:
    - Cole o código de `cloudflare_worker.js` no `Edit Code`.
-   - Na aba **Settings → Variables and Secrets**, adicione o segredo `GH_TOKEN` com o token gerado no passo 1.
-   
-3. **Ligar o Telegram**:
-   - Acesse no navegador: `https://api.telegram.org/bot<SEU_TOKEN_TELEGRAM>/setWebhook?url=<URL_DO_SEU_WORKER>`
+   - Na aba **Settings → Variables and Secrets**, adicione os três segredos:
+
+   | Secret | Valor |
+   |---|---|
+   | `GH_TOKEN` | o token gerado no passo 1 |
+   | `TG_SECRET` | uma senha que **você inventa** (ex.: 32 caracteres aleatórios) |
+   | `TG_CHAT_ID` | o seu chat id no Telegram (o mesmo do `TELEGRAM_CHAT_ID`) |
+
+3. **Ligar o Telegram**, mandando a mesma senha do `TG_SECRET`:
+
+   ```bash
+   curl "https://api.telegram.org/bot<SEU_TOKEN_TELEGRAM>/setWebhook" \
+     -d "url=<URL_DO_SEU_WORKER>" \
+     -d "secret_token=<o mesmo valor do TG_SECRET>"
+   ```
+
+> **Por que o `secret_token`.** A URL do Worker é pública. Sem essa senha, qualquer um
+> que descobrir o endereço grava arquivo na sua `inbox/` e dispara Actions à vontade —
+> e o commit acontece antes de o Python ter chance de filtrar por chat. Com ela, o
+> Worker devolve 401 pra quem não for o Telegram.
 
 ## Cadência adaptativa
 
