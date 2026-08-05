@@ -26,24 +26,35 @@ def checa(nome, condicao, detalhe=""):
 # ---------------------------------------------------------------- ambiente
 
 
+def _caminhos_reais(mod):
+    return [n for n in dir(mod)
+            if n.isupper() and isinstance(getattr(mod, n), str)
+            and getattr(mod, n).startswith(D.BASE + os.sep)]
+
+
 def sandbox():
     """Redireciona TODO arquivo de dados pra uma pasta temporária.
 
     Descobre os caminhos sozinho em vez de manter uma lista à mão: uma lista
     esquecida já fez um teste sobrescrever a fila real de mensagens.
+
+    Varre `painel` junto com `dados`: varrer só o `dados` deixava o painel.SAIDA
+    apontando pro repositório, e rodar a suíte reescrevia o painel.html de verdade
+    com os lançamentos de mentira dos testes.
     """
+    import painel
+
     tmp = tempfile.mkdtemp(prefix="financas-teste-")
-    reais = [n for n in dir(D)
-             if n.isupper() and isinstance(getattr(D, n), str)
-             and getattr(D, n).startswith(D.BASE + os.sep)]
-    for nome in reais:
-        setattr(D, nome, os.path.join(tmp, os.path.basename(getattr(D, nome))))
+    modulos = (D, painel)
+    for mod in modulos:
+        for nome in _caminhos_reais(mod):
+            setattr(mod, nome, os.path.join(tmp, os.path.basename(getattr(mod, nome))))
+    os.makedirs(D.INBOX, exist_ok=True)
 
     # Trava: se sobrar qualquer caminho apontando pro repositório, aborta antes
     # de escrever em cima dos dados de verdade.
-    vazando = [n for n in dir(D)
-               if n.isupper() and isinstance(getattr(D, n), str)
-               and getattr(D, n).startswith(D.BASE + os.sep)]
+    vazando = {mod.__name__: _caminhos_reais(mod) for mod in modulos}
+    vazando = {k: v for k, v in vazando.items() if v}
     if vazando:
         shutil.rmtree(tmp, ignore_errors=True)
         raise SystemExit(f"ABORTADO: {vazando} ainda apontam pro repositório real")
@@ -239,7 +250,8 @@ def teste_ciclo_semanal(S):
           any("PERÍODO FECHADO" in r and "sobrou" in r for r in s.respostas),
           str(s.respostas[-1:]))
 
-    mes = D.hoje().isoformat()[:7]
+    # O ciclo do mês vira dia 10, então o rótulo de hoje NÃO é hoje[:7].
+    mes = D.mes_aberto_a()
     resumo = sync.montar_resumo(s.linhas, s.orcamento)
     checa("gasto da conta B não entra no total do salário",
           D.gastos_do_mes(s.linhas, mes, "A") == 0.0
@@ -277,7 +289,8 @@ def teste_isolamento(S):
     s = S()
     s.processar(msg("b500", 1))
     s.processar(msg("a100", 2))
-    mes = D.hoje().isoformat()[:7]
+    # O ciclo do mês vira dia 10, então o rótulo de hoje NÃO é hoje[:7].
+    mes = D.mes_aberto_a()
     checa("conta A soma só os 100", D.gastos_do_mes(s.linhas, mes, "A") == 100.0,
           str(D.gastos_do_mes(s.linhas, mes, "A")))
     checa("conta B soma só os 500", D.gastos_do_mes(s.linhas, mes, "B") == 500.0)
@@ -331,6 +344,158 @@ def teste_intencoes(S):
 
     s.processar(msg("fatura", 7))
     checa("responde sobre a fatura", any("Fatura aberta" in r for r in s.respostas))
+
+
+def teste_correcao(S):
+    """Regressão do pior bug encontrado: em 04/08/2026 o Igor pediu DUAS vezes pra
+    mover um gasto de mercado da conta B pra A, as duas mensagens foram processadas,
+    e o ledger não mudou nem sobrou rastro em lugar nenhum."""
+    print("\n✏️  Correção de lançamento")
+    import sync
+
+    RESPOSTAS.clear()
+    RESPOSTAS.update({
+        "mercado": {"transcricao": "26,92 mercado porcarias para cinema", "intencao": "gasto",
+                    "precisa_perguntar": False,
+                    "lancamentos": [lanc(26.92, "Mercado/Supermercado",
+                                         descricao="mercado porcarias para cinema")]},
+        # O Gemini erra o id com frequência. Antes, id errado = correção sumia calada.
+        "conta_sem_id": {"transcricao": "Corrigir o 26,92 mercado porcarias, vai pra conta A",
+                         "intencao": "correcao", "precisa_perguntar": False, "lancamentos": [],
+                         "alvo": {"id": "", "campo": "conta", "valor_novo": "A"}},
+        "conta_id_errado": {"transcricao": "o mercado porcarias era pra ser na conta A",
+                            "intencao": "correcao", "precisa_perguntar": False, "lancamentos": [],
+                            "alvo": {"id": "999", "campo": "conta", "valor_novo": "A"}},
+        "impossivel": {"transcricao": "corrige aquilo lá", "intencao": "correcao",
+                       "precisa_perguntar": False, "lancamentos": [],
+                       "alvo": {"id": "", "campo": "", "valor_novo": ""}},
+    })
+
+    s = S()
+    s.processar(msg("mercado", 1))
+    checa("o mercado entrou na conta B pelo padrão da categoria",
+          s.linhas[-1]["conta"] == "B", s.linhas[-1]["conta"])
+
+    s.processar(msg("conta_sem_id", 2))
+    checa("sem id, acha o lançamento pelo valor citado e move pra conta A",
+          s.linhas[-1]["conta"] == "A", s.linhas[-1]["conta"])
+    checa("mover de conta marca a origem como dita",
+          s.linhas[-1]["conta_origem"] == "dito")
+    checa("a correção não vira lançamento novo", len(s.linhas) == 1, f"{len(s.linhas)} linhas")
+    checa("o bot diz qual lançamento mexeu",
+          any("#1" in r for r in s.respostas), str(s.respostas[-2:]))
+
+    s2 = S()
+    s2.processar(msg("mercado", 10))
+    s2.processar(msg("conta_id_errado", 11))
+    checa("id errado cai no casamento por descrição",
+          s2.linhas[-1]["conta"] == "A", s2.linhas[-1]["conta"])
+
+    for bruto, esperado in [("26,92", 26.92), ("26.92", 26.92), ("1.234,56", 1234.56),
+                            ("45", 45.0), ("abc", None), ("", None)]:
+        checa(f"valor à brasileira: {bruto!r} → {esperado}",
+              sync._valor_br(bruto) == esperado, str(sync._valor_br(bruto)))
+
+    # "foi 45, não 35": o 45 ainda não existe no ledger, o alvo é o 35.
+    RESPOSTAS["dois_numeros"] = {
+        "transcricao": "aquele mercado foi 45, não 26,92", "intencao": "correcao",
+        "precisa_perguntar": False, "lancamentos": [],
+        "alvo": {"id": "", "campo": "valor", "valor_novo": "45"}}
+    s4 = S()
+    s4.processar(msg("mercado", 30))
+    s4.processar(msg("dois_numeros", 31))
+    checa("com dois números na frase, corrige o valor certo",
+          s4.linhas[-1]["valor"] == 45.0, str(s4.linhas[-1]["valor"]))
+
+    # Correção que não dá pra resolver não pode evaporar: tem que sobrar rastro.
+    s3 = S()
+    s3.processar(msg("mercado", 20))
+    s3.processar(msg("impossivel", 21))
+    with open(D.REVISAR, encoding="utf-8") as f:
+        revisar = f.read()
+    checa("correção sem alvo vai pro revisar.csv em vez de sumir",
+          "correção não aplicada" in revisar, revisar[-160:])
+    checa("e o bot avisa que não conseguiu",
+          any("Não achei qual lançamento" in r for r in s3.respostas))
+
+
+def teste_inbox(S):
+    """O webhook do Cloudflare larga cada mensagem em inbox/*.json."""
+    print("\n📥 Caixa de entrada do webhook")
+    import sync
+
+    RESPOSTAS.clear()
+    RESPOSTAS["oi"] = {"transcricao": "oi", "intencao": "nenhuma",
+                       "precisa_perguntar": False, "lancamentos": []}
+
+    def escrever(update_id, payload):
+        os.makedirs(D.INBOX, exist_ok=True)
+        with open(os.path.join(D.INBOX, f"{update_id}.json"), "w", encoding="utf-8") as f:
+            json.dump(payload, f)
+
+    tg = FakeTelegram()
+    state = {"offset": 0}
+    escrever(5000, {"update_id": 5000, "message": msg("oi", 1)})
+    fila, novos = sync.coletar(tg, state)
+    checa("mensagem da inbox entra na fila", novos == 1, str(novos))
+    checa("o offset anda com o update_id da inbox", state["offset"] == 5001, str(state["offset"]))
+    checa("o arquivo sai da inbox depois de lido",
+          not os.listdir(D.INBOX))
+
+    # O offset nunca pode retroceder: se voltar, o Telegram re-entrega tudo e uma
+    # correção ou um "meu pai mandou 350" seria reprocessado.
+    escrever(4000, {"update_id": 4000, "message": msg("oi", 2)})
+    sync.coletar(tg, state)
+    checa("update antigo não puxa o offset pra trás",
+          state["offset"] == 5001, str(state["offset"]))
+
+    # Mensagem de outra conversa não pode entrar no ledger.
+    escrever(6000, {"update_id": 6000,
+                    "message": {"message_id": 9, "text": "oi",
+                                "chat": {"id": "outro"}, "from": {"is_bot": False}}})
+    fila, novos = sync.coletar(tg, state)
+    checa("mensagem de outro chat é descartada", novos == 0, str(novos))
+    checa("mas o offset avança mesmo assim", state["offset"] == 6001, str(state["offset"]))
+
+    # Arquivo quebrado ficava girando pra sempre, retentado em todo run.
+    os.makedirs(D.INBOX, exist_ok=True)
+    with open(os.path.join(D.INBOX, "7000.json"), "w", encoding="utf-8") as f:
+        f.write("{isso não é json")
+    sync.coletar(tg, state)
+    checa("arquivo ilegível sai da inbox em vez de travar todo run",
+          not os.listdir(D.INBOX), str(os.listdir(D.INBOX)))
+    with open(D.REVISAR, encoding="utf-8") as f:
+        checa("e fica registrado pra perícia", "inbox ilegível" in f.read())
+
+
+def teste_ciclo_mensal(S):
+    """O ciclo da conta A vira dia 10, e essa régua tem que valer no arquivo inteiro."""
+    print("\n🗓  Ciclo mensal da conta A (vira dia 10)")
+
+    casos = [
+        ("2026-08-09", "2026-07", "véspera da virada ainda é o ciclo anterior"),
+        ("2026-08-10", "2026-08", "no dia 10 o ciclo novo abre"),
+        ("2026-08-31", "2026-08", "fim do mês segue no ciclo do mês"),
+        ("2026-01-05", "2025-12", "virada de ano pra trás"),
+        ("2026-01-10", "2026-01", "e janeiro abre no dia 10"),
+    ]
+    for d, esperado, nome in casos:
+        obtido = D.ciclo_de(d)
+        checa(f"{d} → {esperado} ({nome})", obtido == esperado, f"deu {obtido}")
+
+    # A regra do fallback tem que ser a MESMA do novo_lancamento, senão linha editada
+    # à mão e linha nova do mesmo dia caem em ciclos diferentes.
+    D.gravar_lancamentos([])
+    with open(D.LANCAMENTOS, "w", encoding="utf-8", newline="") as f:
+        f.write(",".join(D.CAMPOS) + "\n")
+        f.write("1,,2026-08-05,gasto,10.0,A,Outros,mao,nao_informado,,manual,alta,dito,,,\n")
+    lidas = D.ler_lancamentos()
+    checa("linha sem mes_ref usa a mesma régua do ciclo",
+          lidas[0]["mes_ref"] == "2026-07", lidas[0]["mes_ref"])
+    checa("e mes_de concorda com ela", D.mes_de(lidas[0]) == D.ciclo_de("2026-08-05"))
+
+    checa("proximo_mes vira o ano", D.proximo_mes("2026-12") == "2027-01")
+    checa("mes_anterior vira o ano", D.mes_anterior("2026-01") == "2025-12")
 
 
 def teste_idempotencia(S):
@@ -438,7 +603,8 @@ def teste_multi_lancamento(S):
     checa("mas reprocessar a MESMA mensagem ainda não duplica",
           len(s.novos) - antes == 2, f"{len(s.novos) - antes}")
 
-    mes = D.hoje().isoformat()[:7]
+    # O ciclo do mês vira dia 10, então o rótulo de hoje NÃO é hoje[:7].
+    mes = D.mes_aberto_a()
     resumo = __import__("sync").montar_resumo(s.linhas, s.orcamento)
     checa("receita entra na sobra do mês",
           D.receitas_do_mes(s.linhas, mes, "A") == 15.0 and "1.615,00" in resumo,
@@ -761,6 +927,9 @@ def main():
         teste_ciclo_semanal(S)
         teste_isolamento(S)
         teste_intencoes(S)
+        teste_correcao(S)
+        teste_inbox(S)
+        teste_ciclo_mensal(S)
         teste_idempotencia(S)
         teste_recorrente(S)
         teste_multi_lancamento(S)

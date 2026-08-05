@@ -4,7 +4,10 @@
 Roda no GitHub Actions de 30 em 30 min. Nada fica ligado no PC do Igor.
 """
 
+import glob
+import json
 import os
+import re
 import sys
 import time
 import traceback
@@ -47,6 +50,23 @@ def afirmativo(texto: str) -> bool:
 
 def negativo(texto: str) -> bool:
     return bool(set(_limpa(texto).split()) & NEGA)
+
+
+def _valor_br(bruto) -> float | None:
+    """Converte número escrito à brasileira. Devolve None se não for número.
+
+    A vírgula manda: com ela, o ponto é separador de milhar ("1.234,56" → 1234.56).
+    Sem vírgula, o ponto é decimal mesmo ("26.92" → 26.92) — tratar todo ponto como
+    milhar transformava 26.92 em 2692.
+    """
+    s = str(bruto or "").strip()
+    if not s:
+        return None
+    s = s.replace(".", "").replace(",", ".") if "," in s else s
+    try:
+        return round(float(s), 2)
+    except ValueError:
+        return None
 
 
 # ---------------------------------------------------------------- contexto
@@ -343,21 +363,112 @@ class Sessao:
                 continue
             self.gravar(item, out.get("transcricao", ""), msg_id, idx)
 
+    CAMPOS_CORRIGIVEIS = ("valor", "categoria", "conta", "descricao", "data")
+
+    def _achar_alvo(self, alvo, transcricao):
+        """Acha o lançamento a corrigir. O id do Gemini é a via boa, mas ele erra —
+        e antes disso a correção sumia sem deixar rastro. Se o id não bater, procura
+        o lançamento mais recente que case com o valor citado ou com a descrição."""
+        alvo_id = str(alvo.get("id") or "")
+        linha = next((l for l in self.linhas if l["id"] == alvo_id), None)
+        if linha:
+            return linha
+
+        candidatos = sorted(self.linhas, key=lambda l: (l["data"], int(l["id"])), reverse=True)[:20]
+
+        # Numa correção de valor a frase costuma trazer os DOIS números ("foi 45, não
+        # 35"). O valor novo ainda não está no ledger, então ignorá-lo evita casar
+        # com um lançamento antigo que por acaso tenha aquele mesmo valor.
+        novo = _valor_br(alvo.get("valor_novo")) if alvo.get("campo") == "valor" else None
+
+        # Um valor citado no texto ("corrigir o 26,92 ...") identifica bem o lançamento.
+        for bruto in re.findall(r"\d+(?:\.\d{3})*(?:[.,]\d{1,2})?", transcricao or ""):
+            v = _valor_br(bruto)
+            if v is None or (novo is not None and abs(v - novo) < 0.005):
+                continue
+            achado = next((l for l in candidatos if abs(l["valor"] - v) < 0.005), None)
+            if achado:
+                return achado
+
+        # Sem valor: tenta pela descrição, exigindo uma palavra de verdade em comum.
+        palavras = {p for p in _limpa(transcricao).split() if len(p) > 3}
+        melhor, placar = None, 0
+        for l in candidatos:
+            comum = len(palavras & {p for p in _limpa(l["descricao"]).split() if len(p) > 3})
+            if comum > placar:
+                melhor, placar = l, comum
+        return melhor
+
     def correcao(self, out, msg_id):
         alvo = out.get("alvo") or {}
-        alvo_id, campo, novo = str(alvo.get("id") or ""), alvo.get("campo"), alvo.get("valor_novo")
-        linha = next((l for l in self.linhas if l["id"] == alvo_id), None)
-        if not linha or campo not in ("valor", "categoria", "conta", "descricao", "data"):
-            self.respostas.append("🤔 Não achei qual lançamento corrigir. Me diz de novo?")
+        campo, novo = alvo.get("campo"), alvo.get("valor_novo")
+        transcricao = out.get("transcricao") or ""
+        linha = self._achar_alvo(alvo, transcricao)
+
+        if not linha or campo not in self.CAMPOS_CORRIGIVEIS or novo in (None, ""):
+            # Correção que não cola NÃO pode sumir calada: vai pro revisar.csv, senão
+            # o dado fica errado no ledger e não sobra nem rastro de que você pediu.
+            D.registrar_revisao(
+                f"correção não aplicada (campo={campo!r}, id={alvo.get('id')!r})", transcricao)
+            self.respostas.append(
+                "🤔 Não achei qual lançamento corrigir — anotei em <code>revisar.csv</code>.\n"
+                "<i>Tenta citando o valor, tipo “corrige o 26,92 pra conta A”.</i>")
             return
+
         antigo = linha[campo]
-        linha[campo] = round(float(novo), 2) if campo == "valor" else novo
+        if campo == "valor":
+            v = _valor_br(novo)
+            if v is None or v <= 0:
+                D.registrar_revisao(f"correção com valor inválido ({novo!r})", transcricao)
+                self.respostas.append(
+                    f"🤔 Não entendi <b>{novo}</b> como valor. Me diz o número de novo?")
+                return
+            linha["valor"] = v
+        else:
+            linha[campo] = novo
+
         if campo in ("data", "valor") and linha["pagamento"] == "credito":
             linha["fatura"] = D.fatura_de(date.fromisoformat(linha["data"]))
+        if campo == "data":
+            # A data manda no ciclo do mês: sem isso o gasto fica contado no mês errado.
+            linha["mes_ref"] = D.ciclo_de(linha["data"])
         if campo == "conta":
             linha["conta_origem"] = "dito"
+
         self.mudou = True
-        self.respostas.append(f"✏️ Corrigido: {campo} de <s>{antigo}</s> para <b>{linha[campo]}</b>.")
+        self.respostas.append(
+            f"✏️ Corrigido no #{linha['id']} ({linha['descricao'][:24]}): "
+            f"{campo} de <s>{antigo}</s> para <b>{linha[campo]}</b>.")
+        if campo == "conta":
+            self.respostas.append(self._aviso_conta_mexida(linha))
+
+    def _aviso_conta_mexida(self, linha):
+        """Mover gasto entre carteiras mexe no período da conta B. Se o período que
+        continha o gasto já foi fechado, o `gasto` gravado nele congelou errado — e
+        ninguém recalcula período fechado sozinho, então é melhor avisar.
+
+        Período fechado não é só "id maior que desde_id": cada período vai do
+        desde_id dele até o desde_id do seguinte. Comparar só com o começo faria
+        todo lançamento novo parecer que caiu no primeiro período de todos.
+        """
+        try:
+            ident = int(linha["id"])
+        except (TypeError, ValueError):
+            return "⚠️ Confere o período da conta B, esse lançamento pode ter mexido no saldo."
+
+        ciclos = D.ler_semanas().get("ciclos", [])
+        for atual, seguinte in zip(ciclos, ciclos[1:] + [None]):
+            inicio = atual.get("desde_id", 0)
+            fim = seguinte.get("desde_id") if seguinte else None
+            if ident <= inicio or (fim is not None and ident > fim):
+                continue
+            if atual.get("fechado_em"):
+                q = atual["fechado_em"]
+                return (f"⚠️ Esse lançamento estava no período que fechou em "
+                        f"{q[8:10]}/{q[5:7]} — a sobra daquele período não é "
+                        f"recalculada sozinha. Confere se ainda bate.")
+            return "👍 O período aberto da conta B já está com o novo valor."
+        return "👍 Contabilizei na carteira nova."
 
     def exclusao(self, out, msg_id):
         alvo = str((out.get("alvo") or {}).get("id") or "")
@@ -516,7 +627,13 @@ class Sessao:
         # intenção "nenhuma": silêncio total, de propósito.
 
     def fechar_mes(self, msg_id):
-        self.respostas.append("🗓 O mês da conta A agora fecha automaticamente todo dia 10! Não precisa mais fazer isso.")
+        """Virou informativo: o ciclo anda sozinho, então não existe nada pra fechar."""
+        mes = D.mes_aberto_a()
+        vira = D.proximo_mes(mes)
+        self.respostas.append(
+            f"🗓 O mês da conta A vira sozinho todo dia {D.DIA_VIRADA} — não precisa fechar.\n"
+            f"Ciclo aberto agora: <b>{MESES[int(mes[5:7]) - 1]}</b> "
+            f"(até {D.DIA_VIRADA - 1:02d}/{vira[5:7]}).")
 
 # ---------------------------------------------------------------- avisos
 
@@ -575,16 +692,27 @@ def avisos(sessao, state):
 
 
 def revisao_mensal(sessao, state, api_key):
-    """Todo dia 1º a IA propõe ajuste nos esperados. Propõe — quem aprova é ele."""
+    """Quando o ciclo vira (dia 10), a IA propõe ajuste nos esperados.
+
+    Propõe — quem aprova é ele. Roda no dia da virada, não no dia 1º: é aí que o
+    ciclo anterior fecha de fato e o número do mês passado para de mudar.
+    """
     hoje = D.hoje()
     mes = D.mes_aberto_a()
-    if hoje.day != 1 or state.setdefault("avisos", {}).get(f"revisao-{mes}"):
+    # Prefixo novo de propósito. As chaves "revisao-AAAA-MM" que ficaram no state
+    # foram gravadas quando mes_aberto_a() ainda devolvia o mês corrente; reaproveitar
+    # o mesmo formato faria a revisão do ciclo seguinte ser pulada calada.
+    chave = f"revisao-ciclo-{mes}"
+    if hoje.day != D.DIA_VIRADA or state.setdefault("avisos", {}).get(chave):
         return None
-    state["avisos"][f"revisao-{mes}"] = hoje.isoformat()
+    state["avisos"][chave] = hoje.isoformat()
 
+    # Ciclo a ciclo pra trás, com a mesma régua do ledger. A conta antiga andava de
+    # 28 em 28 dias, que escorrega e pode repetir ou pular um mês.
     historico = {}
-    for i in range(1, 7):
-        m = (hoje.replace(day=1) - timedelta(days=i * 28)).isoformat()[:7]
+    m = mes
+    for _ in range(6):
+        m = D.mes_anterior(m)
         cats = D.por_categoria(sessao.linhas, m, "A")
         if cats:
             historico[m] = cats
@@ -627,8 +755,14 @@ def limpar_erro(state, chave):
     state.setdefault("erros", {}).pop(chave, None)
 
 
-import glob
-import json
+def _avancar_offset(state, update_id):
+    """O offset só anda pra frente. Chamado nos dois modos: se o webhook cair e o
+    polling voltar a valer, o Telegram não pode re-entregar o que a inbox já leu.
+    Reprocessar é pior do que parece — msg_id protege lançamento duplicado, mas não
+    protege correção, exclusão nem 'meu pai mandou 350', que refecharia o período."""
+    if isinstance(update_id, int):
+        state["offset"] = max(int(state.get("offset") or 0), update_id + 1)
+
 
 def coletar(tg, state):
     """Lê as mensagens (via Webhook na inbox/ ou via Polling) e joga na fila persistida."""
@@ -637,26 +771,32 @@ def coletar(tg, state):
     novos = 0
 
     # 1. Lê da caixa de entrada (Modo Webhook)
-    arquivos = sorted(glob.glob("inbox/*.json"))
-    for arq in arquivos:
+    for arq in sorted(glob.glob(os.path.join(D.INBOX, "*.json"))):
         try:
-            with open(arq, "r") as f:
+            with open(arq, encoding="utf-8") as f:
                 payload = json.load(f)
-            msg = payload.get("message") or {}
-            if str(msg.get("chat", {}).get("id")) == chat_id and not msg.get("from", {}).get("is_bot"):
-                fila.setdefault("pendentes", []).append({"msg": msg, "tentativas": 0})
-                novos += 1
-            os.remove(arq)
-            os.system(f"git rm --ignore-unmatch {arq} 2>/dev/null")
         except Exception as e:
-            print(f"Erro lendo inbox {arq}: {e}")
+            # Arquivo ilegível não pode ser retentado pra sempre: sai da inbox e vai
+            # pra perícia. Antes isso ficava girando em todo run, sem contar tentativa.
+            print(f"inbox inválida {arq}: {e}")
+            D.registrar_revisao(f"inbox ilegível ({e})", os.path.basename(arq))
+            _descartar_inbox(arq)
+            continue
+
+        _avancar_offset(state, payload.get("update_id"))
+        msg = payload.get("message") or {}
+        if (str(msg.get("chat", {}).get("id")) == chat_id
+                and not msg.get("from", {}).get("is_bot")):
+            fila.setdefault("pendentes", []).append({"msg": msg, "tentativas": 0})
+            novos += 1
+        _descartar_inbox(arq)
 
     # 2. Lê do Telegram (Modo Polling)
     offset = state.get("offset", 0)
     try:
         updates = tg.updates(offset)
         for u in sorted(updates, key=lambda x: x["update_id"]):
-            state["offset"] = u["update_id"] + 1
+            _avancar_offset(state, u["update_id"])
             msg = u.get("message") or {}
             if str(msg.get("chat", {}).get("id")) != chat_id:
                 continue
@@ -672,6 +812,16 @@ def coletar(tg, state):
     D.gravar_fila(fila)
     D.gravar_state(state)
     return fila, novos
+
+
+def _descartar_inbox(arq):
+    """Só apaga do disco. O `git add -A` do workflow já stageia a remoção — o
+    `git rm` por os.system que existia aqui era redundante e passava o nome do
+    arquivo pro shell, que vem de fora (o Worker aceita qualquer update_id)."""
+    try:
+        os.remove(arq)
+    except OSError as e:
+        print(f"não consegui remover {arq}: {e}")
 
 
 def processar_fila(sessao, fila, state):
@@ -752,7 +902,6 @@ def main():
 
         if sessao.mudou:
             D.gravar_lancamentos(sessao.linhas)
-        state["ultimo_run"] = D.agora().isoformat(timespec="seconds")
 
         saida = [r for r in sessao.respostas if r != "__RELATORIO__"]
         pediu_painel = "__RELATORIO__" in sessao.respostas
@@ -775,6 +924,13 @@ def main():
             rev = revisao_mensal(sessao, state, api_key)
             if rev:
                 saida.append(rev)
+
+        # `ultimo_run` só é carimbado quando o run fez alguma coisa. Antes ele mudava
+        # em TODA passada, então o `git diff --cached --quiet` do workflow nunca pegava
+        # e o repositório levava ~48 commits por dia só mexendo num timestamp — que é
+        # exatamente o que alimenta os conflitos de rebase.
+        if novos or sessao.mudou or saida or pediu_painel:
+            state["ultimo_run"] = D.agora().isoformat(timespec="seconds")
 
         D.gravar_fila(fila)
         D.gravar_pendencias(sessao.pend)

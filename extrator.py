@@ -120,9 +120,22 @@ Na dúvida entre A e B nunca chute calado: ou tem palavra dita, ou está dentro 
   nova). Amigo te pagou, salário, reembolso → tipo="receita", conta="A", categoria "Outros".
 - consulta: "quanto gastei de comer fora?", "quanto sobrou da semana?" → preencha `consulta` e
   responda em `resposta` usando os dados abaixo. Não grave nada.
-- correcao: "aquele almoço foi 45, não 35", "muda pra mercado" → preencha `alvo` com o id do
-  lançamento (use a lista de recentes abaixo, ou o id da mensagem respondida), o campo e o valor novo.
-  Campos válidos: valor, categoria, conta, descricao, data.
+- correcao: ele está falando de um lançamento que JÁ EXISTE (veja a lista de recentes abaixo) e
+  quer mudar alguma coisa nele. Preencha `alvo` com o **id** do lançamento, o `campo` e o
+  `valor_novo`. Campos válidos: valor, categoria, conta, descricao, data.
+  SEMPRE mande o `id` — é ele que faz a correção funcionar. Ache na lista de recentes pelo valor
+  ("o 26,92"), pela descrição ("aquele mercado") ou por ser o último.
+  Trocar a CONTA é correção, nunca um gasto novo. Se ele descreve algo que já está na lista e diz
+  outra conta, é correcao — não lance de novo, senão o gasto entra em dobro. Exemplos, todos
+  intencao=correcao com campo="conta":
+    "o mercado das porcarias era pra ser na conta A"        → alvo={{id:<o id do mercado>, campo:"conta", valor_novo:"A"}}
+    "corrigir o 26,92 mercado, ele deve ir pra conta A"     → alvo={{id:<id do 26,92>, campo:"conta", valor_novo:"A"}}
+    "aquele posto de ontem não era do meu pai, era meu"     → alvo={{id:<id do posto>, campo:"conta", valor_novo:"A"}}
+    "o uber foi na conta B, não na minha"                   → alvo={{id:<id do uber>, campo:"conta", valor_novo:"B"}}
+  Outros campos: "aquele almoço foi 45, não 35" → campo="valor", valor_novo="45".
+  "muda pra mercado" → campo="categoria", valor_novo="Mercado/Supermercado".
+  Se você realmente não conseguir achar o id, ainda assim devolva intencao=correcao com o campo e o
+  valor_novo preenchidos — o sistema tenta achar sozinho pelo valor citado.
 - exclusao: "apaga o último" → `alvo.id`. Se estiver ambíguo qual é, pergunte.
 - orcamento: "meu esperado de comer fora é 300" → alvo.campo=categoria, alvo.valor_novo=valor.
 - recorrente: "todo mês pago 110 de academia" → alvo com nome/valor.

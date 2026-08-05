@@ -319,7 +319,11 @@ def kpis(linhas, orcamento, mes):
     )
 
 
-def gerar(linhas=None, orcamento=None, saida=SAIDA) -> str:
+def gerar(linhas=None, orcamento=None, saida=None) -> str:
+    # `saida=SAIDA` no cabeçalho amarrava o caminho na hora de definir a função, e
+    # aí o sandbox dos testes não conseguia redirecionar: a suíte reescrevia o
+    # painel.html de verdade com os lançamentos de mentira.
+    saida = SAIDA if saida is None else saida
     linhas = D.ler_lancamentos() if linhas is None else linhas
     orcamento = D.ler_orcamento() if orcamento is None else orcamento
     mes = D.mes_aberto_a()

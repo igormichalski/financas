@@ -24,6 +24,9 @@ PENDENCIAS = os.path.join(BASE, "pendencias.json")
 STATE = os.path.join(BASE, "state.json")
 REVISAR = os.path.join(BASE, "revisar.csv")
 FILA = os.path.join(BASE, "fila.json")
+# Onde o Worker do Cloudflare larga cada mensagem crua. Mora aqui, e não solto no
+# sync.py, pra que o sandbox dos testes redirecione junto com o resto.
+INBOX = os.path.join(BASE, "inbox")
 
 # Bots do Telegram só baixam arquivo até 20 MB; o Gemini aceita ~20 MB inline.
 LIMITE_AUDIO = 18 * 1024 * 1024
@@ -33,6 +36,10 @@ MAX_TENTATIVAS = 3
 # Cartão Nubank: fecha dia 15, vence dia 22.
 FECHAMENTO = 15
 VENCIMENTO = 22
+
+# Dia em que o ciclo mensal da conta A vira sozinho. NÃO é o fechamento do cartão:
+# o teto do salário e a fatura são ciclos independentes.
+DIA_VIRADA = 10
 
 CAMPOS = [
     "id", "ts", "data", "tipo", "valor", "conta", "categoria", "descricao",
@@ -210,7 +217,9 @@ def ler_lancamentos() -> list[dict]:
         for c in CAMPOS:
             l.setdefault(c, "")
         if not l.get("mes_ref"):
-            l["mes_ref"] = l["data"][:7]
+            # Tem que ser a MESMA regra do novo_lancamento. Usar l["data"][:7] aqui
+            # faz linha editada à mão cair num mês e linha nova do mesmo dia cair noutro.
+            l["mes_ref"] = ciclo_de(l["data"])
         boas.append(l)
     return boas
 
@@ -380,23 +389,45 @@ def gasto_no_ciclo(linhas: list[dict], ciclo: dict) -> float:
 
 
 def ciclo_de(d_str: str) -> str:
+    """Em qual ciclo mensal da conta A a data cai. O mês vira sozinho no dia 10.
+
+    Gasto de 05/ago ainda pertence ao ciclo de julho; gasto de 10/ago abre agosto.
+    O rótulo é "AAAA-MM" do mês em que o ciclo COMEÇOU, então o ciclo que vai de
+    10/jul a 09/ago se chama "2026-07".
+
+    Atenção: isso não é o ciclo da FATURA (que fecha dia 15, veja fatura_de). São
+    duas coisas diferentes de propósito — uma é o teto do salário, a outra é quando
+    o Nubank cobra.
+    """
     try:
         d = date.fromisoformat(d_str[:10])
     except ValueError:
         return d_str[:7]
-    if d.day < 10:
-        if d.month == 1:
-            return f"{d.year - 1:04d}-12"
-        else:
-            return f"{d.year:04d}-{d.month - 1:02d}"
-    return f"{d.year:04d}-{d.month:02d}"
+    if d.day >= DIA_VIRADA:
+        return f"{d.year:04d}-{d.month:02d}"
+    if d.month == 1:
+        return f"{d.year - 1:04d}-12"
+    return f"{d.year:04d}-{d.month - 1:02d}"
+
 
 def mes_aberto_a() -> str:
     return ciclo_de(hoje().isoformat())
 
+
+def proximo_mes(mes: str) -> str:
+    """"2026-12" → "2027-01". Usado pra achar o ciclo seguinte sem repetir aritmética."""
+    ano, m = int(mes[:4]), int(mes[5:7])
+    return f"{ano + 1:04d}-01" if m == 12 else f"{ano:04d}-{m + 1:02d}"
+
+
+def mes_anterior(mes: str) -> str:
+    ano, m = int(mes[:4]), int(mes[5:7])
+    return f"{ano - 1:04d}-12" if m == 1 else f"{ano:04d}-{m - 1:02d}"
+
+
 def mes_de(l: dict | str) -> str:
     if isinstance(l, dict):
-        return l.get("mes_ref") or l["data"][:7]
+        return l.get("mes_ref") or ciclo_de(l["data"])
     return l[:7]
 
 
