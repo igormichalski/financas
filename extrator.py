@@ -77,6 +77,12 @@ SCHEMA = {
                 "campo": {"type": "STRING"},
                 "valor_novo": {"type": "STRING"},
             },
+            # `required` aqui não é enfeite. Sem ele o modelo omitia `campo`, e a
+            # correção morria com "campo=None" mesmo tendo acertado o id — foi o que
+            # aconteceu em 05/08 com "corrige o 26,92 do mercado, vai pra conta B".
+            # Todos os outros objetos deste schema já declaravam required; estes dois
+            # tinham sido esquecidos. O que não se aplica vem string vazia.
+            "required": ["id", "campo", "valor_novo"],
         },
         "consulta": {
             "type": "OBJECT",
@@ -85,6 +91,7 @@ SCHEMA = {
                 "categoria": {"type": "STRING"},
                 "conta": {"type": "STRING", "enum": ["A", "B", "ambas"]},
             },
+            "required": ["periodo", "categoria", "conta"],
         },
     },
     "required": ["transcricao", "intencao", "precisa_perguntar", "lancamentos"],
@@ -136,7 +143,11 @@ Na dúvida entre A e B nunca chute calado: ou tem palavra dita, ou está dentro 
   "muda pra mercado" → campo="categoria", valor_novo="Mercado/Supermercado".
   Se você realmente não conseguir achar o id, ainda assim devolva intencao=correcao com o campo e o
   valor_novo preenchidos — o sistema tenta achar sozinho pelo valor citado.
-- exclusao: "apaga o último" → `alvo.id`. Se estiver ambíguo qual é, pergunte.
+  OBRIGATÓRIO: numa correcao, `campo` e `valor_novo` NUNCA podem vir vazios. Sem eles a correção
+  é descartada, mesmo que o id esteja certo. `campo` é uma destas cinco palavras exatas:
+  valor, categoria, conta, descricao, data.
+- exclusao: "apaga o último" → `alvo.id`. Se estiver ambíguo qual é, pergunte. Aqui `campo` e
+  `valor_novo` não se aplicam: devolva string vazia nos dois.
 - orcamento: "meu esperado de comer fora é 300" → alvo.campo=categoria, alvo.valor_novo=valor.
 - recorrente: "todo mês pago 110 de academia" → alvo com nome/valor.
 - fatura: "quanto tá a fatura?", "quando fecha o cartão?" → responda em `resposta`.

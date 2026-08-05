@@ -419,6 +419,49 @@ def teste_correcao(S):
           any("Não achei qual lançamento" in r for r in s3.respostas))
 
 
+def teste_schema_gemini(S):
+    """O responseSchema é o único contrato que impede o Gemini de devolver meia resposta.
+
+    Objeto sem `required` deixa o modelo omitir campo à vontade. Aconteceu de verdade em
+    05/08: "corrige o 26,92 do mercado, vai pra conta B" voltou com o id certo e
+    campo=None, e a correção foi descartada. Os outros objetos do schema já declaravam
+    required; alvo e consulta tinham sido esquecidos.
+    """
+    print("\n📐 Contrato do schema do Gemini")
+    import extrator
+
+    props = extrator.SCHEMA["properties"]
+
+    for nome, campos in [("alvo", ["id", "campo", "valor_novo"]),
+                         ("consulta", ["periodo", "categoria", "conta"])]:
+        obj = props[nome]
+        checa(f"{nome} declara required", "required" in obj, str(list(obj)))
+        faltando = [c for c in campos if c not in obj.get("required", [])]
+        checa(f"{nome} exige {', '.join(campos)}", not faltando, f"faltam {faltando}")
+
+    # Todo objeto do schema tem que declarar required, senão o mesmo bug volta noutro campo.
+    def varre(no, caminho="raiz"):
+        if not isinstance(no, dict):
+            return []
+        ruins = []
+        if no.get("type") == "OBJECT" and "required" not in no:
+            ruins.append(caminho)
+        for k, v in (no.get("properties") or {}).items():
+            ruins += varre(v, f"{caminho}.{k}")
+        if no.get("type") == "ARRAY":
+            ruins += varre(no.get("items") or {}, f"{caminho}[]")
+        return ruins
+
+    orfaos = varre(extrator.SCHEMA)
+    checa("nenhum objeto do schema sem required", not orfaos, str(orfaos))
+
+    # E o campo que a correção aceita tem que casar com o que o código sabe aplicar.
+    import sync
+    validos = set(sync.Sessao.CAMPOS_CORRIGIVEIS)
+    checa("prompt cita exatamente os campos corrigíveis",
+          all(c in extrator.PROMPT for c in validos), str(validos))
+
+
 def teste_inbox(S):
     """O webhook do Cloudflare larga cada mensagem em inbox/*.json."""
     print("\n📥 Caixa de entrada do webhook")
@@ -496,6 +539,84 @@ def teste_ciclo_mensal(S):
 
     checa("proximo_mes vira o ano", D.proximo_mes("2026-12") == "2027-01")
     checa("mes_anterior vira o ano", D.mes_anterior("2026-01") == "2025-12")
+
+
+def teste_entradas_restantes(S):
+    """Fecha a cobertura das 12 intenções que o extrator declara.
+
+    Faltavam `recorrente`, `relatorio` e `fechar_mes` — e o `fechar_mes` é exatamente o
+    tipo de coisa que apodrece calada: ele virou informativo quando o ciclo passou a
+    virar sozinho, e nada garantia que ainda respondesse algo coerente.
+    """
+    print("\n🎛  Entradas que faltavam")
+    import sync
+
+    RESPOSTAS.clear()
+    RESPOSTAS.update({
+        "cadastra_rec": {
+            "transcricao": "todo mês pago 79,90 de internet", "intencao": "recorrente",
+            "precisa_perguntar": False,
+            "lancamentos": [lanc(79.90, "Serviços online/Tech", descricao="internet")],
+            "alvo": {"campo": "Internet", "valor_novo": "79.90"}},
+        "quer_painel": {"transcricao": "me manda o painel", "intencao": "relatorio",
+                        "precisa_perguntar": False, "lancamentos": []},
+        "virou": {"transcricao": "fechou o mes", "intencao": "fechar_mes",
+                  "precisa_perguntar": False, "lancamentos": []},
+        "foto": {"transcricao": "42 no cinema", "intencao": "gasto",
+                 "precisa_perguntar": False,
+                 "lancamentos": [lanc(42, "Restaurantes/Lanches", descricao="cinema")]},
+    })
+
+    s = S()
+
+    # ---- recorrente: cadastra, mas NUNCA lança sozinho
+    antes = len(s.linhas)
+    s.processar(msg("cadastra_rec", 1))
+    itens = {i["nome"]: i for i in D.ler_recorrentes()["itens"]}
+    checa("recorrente novo é cadastrado", "Internet" in itens, str(list(itens)))
+    checa("com o valor certo", itens.get("Internet", {}).get("valor") == 79.90,
+          str(itens.get("Internet")))
+    checa("cadastrar recorrente NÃO lança gasto", len(s.linhas) == antes,
+          f"{len(s.linhas)} vs {antes}")
+    checa("e o bot avisa que não vai lançar sozinho",
+          any("Não vou lançar sozinho" in r for r in s.respostas), str(s.respostas[-1:]))
+
+    # ---- relatorio: sinaliza o painel sem mexer no ledger
+    s2 = S()
+    s2.processar(msg("quer_painel", 2))
+    checa("pedir painel sinaliza __RELATORIO__", "__RELATORIO__" in s2.respostas,
+          str(s2.respostas))
+    checa("pedir painel não altera o ledger", not s2.mudou)
+
+    # ---- fechar_mes: virou informativo, mas tem que responder algo coerente
+    s3 = S()
+    s3.processar(msg("virou", 3))
+    resp = " ".join(s3.respostas)
+    checa("fechar_mes responde explicando a virada automática",
+          str(D.DIA_VIRADA) in resp and "vira sozinho" in resp, resp[:120])
+    checa("fechar_mes não inventa mês nem mexe em nada", not s3.mudou)
+    mes = D.mes_aberto_a()
+    checa("e cita o ciclo aberto de verdade",
+          MESES_PT[int(mes[5:7]) - 1] in resp, f"{resp[:120]} (esperava {mes})")
+
+    # ---- foto com legenda: o gasto está na caption, não em text
+    s4 = S()
+    foto = {"message_id": 4, "caption": "foto", "chat": {"id": "-1"},
+            "from": {"is_bot": False},
+            "photo": [{"file_id": "abc", "file_size": 100}]}
+    s4.processar(foto)
+    checa("gasto na legenda de uma foto é lançado",
+          any(l["valor"] == 42.0 for l in s4.novos), str([l["valor"] for l in s4.novos]))
+
+    # ---- mensagem sem texto e sem mídia: não pode explodir nem responder
+    s5 = S()
+    s5.processar({"message_id": 5, "chat": {"id": "-1"}, "from": {"is_bot": False}})
+    checa("mensagem vazia é ignorada em silêncio",
+          not s5.novos and not s5.respostas and not s5.mudou)
+
+
+MESES_PT = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
+            "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
 
 
 def teste_idempotencia(S):
@@ -958,8 +1079,10 @@ def main():
         teste_isolamento(S)
         teste_intencoes(S)
         teste_correcao(S)
+        teste_schema_gemini(S)
         teste_inbox(S)
         teste_ciclo_mensal(S)
+        teste_entradas_restantes(S)
         teste_idempotencia(S)
         teste_recorrente(S)
         teste_multi_lancamento(S)
