@@ -771,8 +771,38 @@ def teste_silencio(S):
     sync.CICLO_RAPIDO = 180
 
 
+def teste_cadencia_padrao(S):
+    """Regressão de latência. Com o webhook, cada mensagem dispara o seu próprio run, e
+    o workflow tem `concurrency: group: sync`. Um run que fica vivo depois de terminar
+    SEGURA A FILA da mensagem seguinte — medido em 05/08: "Painel" às 13:01:58 só saiu
+    às 13:05 porque o run anterior dormia 180s à toa. O padrão tem que ser passada única."""
+    print("\n⚡ Cadência padrão: uma passada e morre")
+    import importlib
+    import sync
+
+    guardado = os.environ.pop("CICLO_RAPIDO", None)
+    try:
+        importlib.reload(sync)
+        checa("CICLO_RAPIDO padrão é 0 (sem loop)", sync.CICLO_RAPIDO == 0,
+              f"deu {sync.CICLO_RAPIDO}")
+    finally:
+        if guardado is not None:
+            os.environ["CICLO_RAPIDO"] = guardado
+        importlib.reload(sync)
+
+    # E dá pra religar o loop por ambiente, pra quando a fila estiver travada.
+    os.environ["CICLO_RAPIDO"] = "7"
+    try:
+        importlib.reload(sync)
+        checa("mas segue configurável por ambiente", sync.CICLO_RAPIDO == 7,
+              f"deu {sync.CICLO_RAPIDO}")
+    finally:
+        os.environ.pop("CICLO_RAPIDO", None)
+        importlib.reload(sync)
+
+
 def teste_cadencia(S):
-    print("\n⏱  Cadência adaptativa (3 min com movimento, 30 min parado)")
+    print("\n⏱  Cadência adaptativa (quando religada por ambiente)")
     import sync
 
     guardado = {k: os.environ.get(k) for k in ("CICLO_RAPIDO", "JANELA_ATIVA", "TEMPO_MAX")}
@@ -937,6 +967,7 @@ def main():
         teste_painel()
         teste_erros(S)
         teste_silencio(S)
+        teste_cadencia_padrao(S)
         teste_cadencia(S)
         teste_arquivos_robustos()
     finally:

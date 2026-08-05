@@ -8,6 +8,9 @@
  *    - GH_TOKEN:   token do GitHub com acesso de escrita ao repositório.
  *    - TG_SECRET:  uma senha qualquer que VOCÊ inventa (ex.: 32 caracteres aleatórios).
  *    - TG_CHAT_ID: o seu chat id no Telegram.
+ *    - TG_TOKEN:   o token do bot (o mesmo do TELEGRAM_TOKEN no GitHub). Opcional:
+ *                  serve só pra reagir 👀 na hora, avisando que a mensagem chegou
+ *                  enquanto o Actions sobe. Sem ele, tudo funciona igual, só sem a reação.
  * 3. Registre o webhook mandando a MESMA senha do TG_SECRET:
  *
  *      curl "https://api.telegram.org/bot<TOKEN>/setWebhook" \
@@ -56,6 +59,22 @@ export default {
       }
 
       const updateId = body.update_id;
+
+      // 3.5. Feedback imediato. O GitHub Actions leva ~30s pra subir um runner, e
+      //      silêncio nesse tempo parece que o bot morreu. A reação chega em menos de
+      //      1s e não polui a conversa como uma mensagem de "processando..." faria.
+      //      É best-effort: se falhar, o processamento segue normalmente.
+      if (env.TG_TOKEN && body.message?.message_id) {
+        await fetch(`https://api.telegram.org/bot${env.TG_TOKEN}/setMessageReaction`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: body.message.chat.id,
+            message_id: body.message.message_id,
+            reaction: [{ type: "emoji", emoji: "👀" }]
+          })
+        }).catch((e) => console.error("reação falhou:", e));
+      }
 
       // 4. Prepara o conteúdo da mensagem para salvar no GitHub (Base64)
       const content = btoa(unescape(encodeURIComponent(JSON.stringify(body))));

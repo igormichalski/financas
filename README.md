@@ -243,23 +243,46 @@ O código completo do Worker está no arquivo `cloudflare_worker.js`.
 > e o commit acontece antes de o Python ter chance de filtrar por chat. Com ela, o
 > Worker devolve 401 pra quem não for o Telegram.
 
-## Cadência adaptativa
+## Quanto tempo leva pra resposta chegar
 
-O cron acorda de **30 em 30 min** (07h–00h). Mas se ao acordar ele encontrar movimento —
-mensagem nova ou fila pendente — o run **fica vivo checando de 3 em 3 minutos** em vez de
-dormir meia hora. Enquanto você está lançando, a resposta é rápida; parou de mexer por
-15 min, ele encerra e volta ao ritmo lento.
+Cada mensagem dispara o seu próprio run, então o run faz **uma passada e morre**. O caminho:
 
-Três freios pra isso não comer o orçamento de minutos:
+| Etapa | Tempo |
+|---|---|
+| Telegram → Worker → reação 👀 | < 1s |
+| Worker grava na `inbox/` e dispara a Action | ~1s |
+| GitHub aloca e sobe o runner | **~15–25s** (piso, não dá pra otimizar) |
+| checkout + `sync.py` + Gemini + resposta | ~10–15s |
+| **Total até a resposta no Telegram** | **~30–45s** |
+
+A reação 👀 existe justamente por causa do piso do runner: ela confirma o recebimento na
+hora, pra você não ficar 30s achando que o bot morreu.
+
+> **Já foi 4 minutos.** O run ficava vivo checando de 3 em 3 min mesmo depois de terminar
+> o trabalho. Como o workflow tem `concurrency: group: sync`, esse run dormindo **segurava
+> a fila da mensagem seguinte**. Medido em 05/08: "Painel" às 13:01:58, resposta às 13:05.
+> A cadência tinha virado o gargalo que ela existia pra evitar. Hoje o padrão é passada
+> única (`CICLO_RAPIDO=0`).
+
+### Por que não deixar um run vivo pra responder em 2s
+
+Foi considerado e não fecha a conta: o repositório é **privado**, e o plano Free dá
+**2.000 min/mês** de Actions. Um run permanente consome `60 × 24 × 30 = 43.200 min/mês` —
+morreria em ~33 horas. Com runs curtos são ~1.200 min/mês, que cabe.
+
+Responder em poucos segundos exigiria sair do Actions (um servidorzinho sempre ligado, ou
+portar a lógica pro próprio Cloudflare). Não vale a troca por agora.
+
+### Loop, quando faz sentido religar
+
+O loop continua no código e volta por variável de ambiente (`CICLO_RAPIDO=180`), pra quando
+a fila estiver travada e valer a pena insistir dentro do mesmo run. Os freios seguem lá:
 
 | Freio | Valor | Pra quê |
 |---|---|---|
 | `JANELA_ATIVA` | 15 min | quieto por esse tempo → encerra |
 | `TEMPO_MAX` | 25 min | teto duro por run |
 | `MAX_SEM_PROGRESSO` | 2 | fila que não anda → desiste e espera o cron |
-
-O último é o que importa numa indisponibilidade: sem ele, um Gemini fora do ar faria o run
-girar 25 minutos a cada meia hora. Com ele, tenta 2 vezes de perto e volta a dormir.
 
 ## Forçar um sync agora
 

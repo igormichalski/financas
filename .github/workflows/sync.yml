@@ -26,14 +26,19 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    # O run fica vivo checando de 3 em 3 min enquanto houver movimento (TEMPO_MAX=25min).
-    timeout-minutes: 30
+    # O run faz uma passada e morre (CICLO_RAPIDO=0). 10 min é folga pra uma rajada de
+    # áudios com retentativa do Gemini, não orçamento de trabalho.
+    timeout-minutes: 10
     steps:
+      # Sem histórico: o repositório tem centenas de commits de sync e nada aqui olha
+      # pro passado. Corta alguns segundos do checkout, que é caminho crítico agora.
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          fetch-depth: 1
+
+      # Nada de actions/setup-python: o runner ubuntu-24.04 já vem com Python 3.12, e
+      # baixar/instalar outro custava ~6-10s em TODO run. O código não usa dependência
+      # externa nenhuma — só a stdlib.
 
       # Não existe mais relatório por horário: o bot só fala quando o custo muda
       # ou quando tem lembrete. O painel completo sai só se for pedido.
@@ -52,7 +57,10 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           RELATORIO: ${{ steps.quando.outputs.relatorio }}
-        run: python3 sync.py
+        # -u: sem buffer. Com buffer, todo o print do run saía de uma vez no fim, o que
+        # fazia o log parecer que tudo aconteceu no último segundo e escondia onde o
+        # tempo estava indo.
+        run: python3 -u sync.py
 
       # always(): mesmo com o sync falhando, a fila e o offset precisam persistir —
       # senão o que já foi baixado do Telegram se perde.
@@ -84,6 +92,15 @@ jobs:
             'painel.html merge=ours' \
             'state.json  merge=ours' > .git/info/attributes
 
+          # Os arquivos da inbox são JSONs pequenos e parecidos, então o git detecta
+          # "rename" onde não existe: apagar inbox/806 e o Worker criar inbox/807 virava
+          #   CONFLICT (rename/delete): 806 renamed to 807 in HEAD, but deleted in <nosso>
+          # e o run inteiro morria (05/08 13:00). Sem detecção de rename, as duas coisas
+          # são o que realmente são — caminhos diferentes — e mesclam sem conflito.
+          # Não custa nada: nada neste repositório é renomeado de verdade.
+          git config merge.renames false
+          git config diff.renames false
+
           # O push pode colidir com outro run; rebase e tenta de novo.
           for i in 1 2 3; do
             # Rebase que falha deixa o repositório em estado conflitado, e aí as
@@ -91,7 +108,20 @@ jobs:
             # Limpar antes é o que torna a retentativa útil.
             git rebase --abort 2>/dev/null || true
             git merge --abort 2>/dev/null || true
-            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || { sleep $((i * 5)); continue; }
+
+            if ! git pull --rebase --autostash origin "${GITHUB_REF_NAME}"; then
+              # De propósito NÃO existe resolução automática aqui.
+              #
+              # A tentativa óbvia — "conflito na inbox? honra a remoção, a mensagem já
+              # está na fila.json" — foi testada e PERDE MENSAGEM. Com rename fantasma o
+              # git atribui a remoção do 806 ao caminho do 807, então honrar a remoção
+              # apaga um 807 que este run nunca leu. Falhar alto (o aviso no Telegram
+              # abaixo) é melhor que apagar calado o que você acabou de mandar.
+              echo "conflito que eu não sei resolver com segurança:"
+              git diff --name-only --diff-filter=U
+              sleep $((i * 5))
+              continue
+            fi
 
             # Já com o ledger mesclado, refaz o painel: ele é 100% derivado, e a
             # resolução por "ours" acima pode ter deixado a versão antiga no lugar.

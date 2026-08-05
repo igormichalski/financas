@@ -19,11 +19,18 @@ from datetime import date, datetime, timedelta
 # sem estourar a janela.
 PAUSA_ENTRE_ITENS = float(os.environ.get("PAUSA_ENTRE_ITENS", "5"))
 
-# Cadência adaptativa. O cron acorda de 30 em 30 min; se ao acordar encontrar
-# movimento (mensagem nova ou fila pendente), o run FICA VIVO checando de 3 em 3 min
-# em vez de dormir meia hora. Enquanto você está lançando, a resposta é rápida;
-# parou de mexer, ele encerra e volta ao ritmo lento.
-CICLO_RAPIDO = int(os.environ.get("CICLO_RAPIDO", "180"))      # 3 min entre checagens
+# Cadência: por padrão o run faz UMA passada e morre.
+#
+# Antes ele ficava vivo checando de 3 em 3 min, o que fazia sentido quando o cron de
+# 30 min era a única forma de acordar. Com o webhook, cada mensagem dispara o seu
+# próprio run — e como o workflow tem `concurrency: group: sync`, um run que fica
+# dormindo depois de terminar o trabalho SEGURA A FILA da mensagem seguinte. Medido em
+# 05/08: "Painel" às 13:01:58 só foi respondido às 13:05, porque o run anterior estava
+# dormindo 180s à toa. A cadência virou o gargalo que ela existia pra evitar.
+#
+# CICLO_RAPIDO=0 → passada única. Continua configurável por variável de ambiente pra
+# quando a fila estiver travada e valer a pena insistir dentro do mesmo run.
+CICLO_RAPIDO = int(os.environ.get("CICLO_RAPIDO", "0"))
 JANELA_ATIVA = int(os.environ.get("JANELA_ATIVA", "900"))      # 15 min quieto → encerra
 TEMPO_MAX = int(os.environ.get("TEMPO_MAX", "1500"))           # 25 min de teto por run
 MAX_SEM_PROGRESSO = int(os.environ.get("MAX_SEM_PROGRESSO", "2"))
