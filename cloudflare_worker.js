@@ -24,7 +24,7 @@
 const REPO = "igormichalski/financas"; // Ajuste se necessário
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     // 1. Só aceita requisições POST do Telegram
     if (request.method !== "POST") {
       return new Response("OK");
@@ -60,21 +60,26 @@ export default {
 
       const updateId = body.update_id;
 
-      // 3.5. Feedback imediato. O GitHub Actions leva ~30s pra subir um runner, e
+      // 3.5. Feedback imediato. O GitHub Actions leva ~20s pra subir um runner, e
       //      silêncio nesse tempo parece que o bot morreu. A reação chega em menos de
       //      1s e não polui a conversa como uma mensagem de "processando..." faria.
-      //      É best-effort: se falhar, o processamento segue normalmente.
-      if (env.TG_TOKEN && body.message?.message_id) {
-        await fetch(`https://api.telegram.org/bot${env.TG_TOKEN}/setMessageReaction`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: body.message.chat.id,
-            message_id: body.message.message_id,
-            reaction: [{ type: "emoji", emoji: "👀" }]
-          })
-        }).catch((e) => console.error("reação falhou:", e));
-      }
+      //
+      //      SEM await: a reação é enfeite, e esperar por ela atrasava o PUT e o
+      //      dispatch, que são o caminho crítico. Medido: com await, o Worker levava
+      //      2,9s pra responder. ctx.waitUntil deixa a requisição terminar em segundo
+      //      plano depois da resposta, sem o runtime matá-la no meio.
+      const reagir = (env.TG_TOKEN && body.message?.message_id)
+        ? fetch(`https://api.telegram.org/bot${env.TG_TOKEN}/setMessageReaction`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: body.message.chat.id,
+              message_id: body.message.message_id,
+              reaction: [{ type: "emoji", emoji: "👀" }]
+            })
+          }).catch((e) => console.error("reação falhou:", e))
+        : null;
+      if (reagir) ctx.waitUntil(reagir);
 
       // 4. Prepara o conteúdo da mensagem para salvar no GitHub (Base64)
       const content = btoa(unescape(encodeURIComponent(JSON.stringify(body))));
