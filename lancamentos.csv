@@ -29,3 +29,4 @@ id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianc
 28,2026-08-04T19:59:29-04:00,2026-08-04,gasto,26.92,A,Mercado/Supermercado,mercado porcarias para cinema,nao_informado,,telegram,alta,dito,"26,92 mercado porcarias para cinema",117#0,2026-07
 29,2026-08-05T12:33:59-04:00,2026-08-05,gasto,3.0,A,Mercado/Supermercado,besteira no mercado,nao_informado,,telegram,alta,dito,3 reais gasto de besteira no mercado ir para conta A. Essa lançamento é outro,145#0,2026-07
 30,2026-08-05T18:32:44-04:00,2026-08-05,gasto,26.58,A,Restaurantes/Lanches,pizza frita comer fora,nao_informado,,telegram,alta,padrao_categoria,"26,58 pizza frita comer fora",149#0,2026-07
+31,2026-08-05T21:16:49-04:00,2026-08-05,gasto,21.62,A,Restaurantes/Lanches,acai,nao_informado,,telegram,alta,padrao_categoria,"21,62 acai",151#0,2026-07
