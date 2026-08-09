@@ -31,3 +31,4 @@ id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianc
 30,2026-08-05T18:32:44-04:00,2026-08-05,gasto,26.58,A,Restaurantes/Lanches,pizza frita comer fora,nao_informado,,telegram,alta,padrao_categoria,"26,58 pizza frita comer fora",149#0,2026-07
 31,2026-08-05T21:16:49-04:00,2026-08-05,gasto,21.62,A,Restaurantes/Lanches,acai,nao_informado,,telegram,alta,padrao_categoria,"21,62 acai",151#0,2026-07
 32,2026-08-09T00:41:06-04:00,2026-08-09,gasto,220.95,A,Restaurantes/Lanches,jantar 4 anos de namoro,nao_informado,,telegram,alta,padrao_categoria,"220,95 jantar 4 anos de namoro",157#0,2026-07
+33,2026-08-09T00:41:34-04:00,2026-08-09,gasto,197.6,B,Mercado/Supermercado,mercado,nao_informado,,telegram,alta,dito,"197,60 mercado conta B",159#0,2026-07

@@ -1,14 +1,3 @@
 {
-  "abertas": [
-    {
-      "id": "f1c3efe1",
-      "tipo": "duvida",
-      "pergunta": "Mercado/Supermercado de R$ 197,60 passa de R$ 160 — quer lançar na conta B mesmo ou na sua (conta A)?",
-      "criada": "2026-08-09T00:33:15-04:00",
-      "msg_id": 153,
-      "dados": {
-        "transcricao": "197,60 mercado conta B"
-      }
-    }
-  ]
+  "abertas": []
 }
