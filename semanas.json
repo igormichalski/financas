@@ -18,8 +18,16 @@
     },
     {
       "inicio": "2026-08-02",
-      "desde_id": 23
+      "desde_id": 23,
+      "fechado_em": "2026-08-10",
+      "recebido": 300.0,
+      "gasto": 267.6,
+      "sobra": 32.4
+    },
+    {
+      "inicio": "2026-08-10",
+      "desde_id": 35
     }
   ],
-  "acumulado": -10.85
+  "acumulado": 21.55
 }
