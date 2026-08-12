@@ -35,3 +35,4 @@ id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianc
 34,2026-08-09T11:08:37-04:00,2026-08-09,gasto,145.0,A,Restaurantes/Lanches,bolo aniversário de namoro,nao_informado,,telegram,alta,padrao_categoria,145 bolo aniversário de namoro,161#0,2026-07
 35,2026-08-10T08:05:18-04:00,2026-08-10,receita,300.0,B,Outros,ajuda do pai,nao_informado,,telegram,alta,dito,Meu pai mandou 300 reais,164#0,2026-08
 36,2026-08-12T13:31:55-04:00,2026-08-12,gasto,22.5,A,Restaurantes/Lanches,pizza,nao_informado,,telegram,alta,padrao_categoria,"22,50 pizza",168#0,2026-08
+37,2026-08-12T19:18:39-04:00,2026-08-12,gasto,35.98,A,iFood,ifood,nao_informado,,telegram,alta,padrao_categoria,"35,98 ifood",170#0,2026-08
