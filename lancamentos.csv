@@ -37,3 +37,4 @@ id,ts,data,tipo,valor,conta,categoria,descricao,pagamento,fatura,origem,confianc
 36,2026-08-12T13:31:55-04:00,2026-08-12,gasto,22.5,A,Restaurantes/Lanches,pizza,nao_informado,,telegram,alta,padrao_categoria,"22,50 pizza",168#0,2026-08
 37,2026-08-12T19:18:39-04:00,2026-08-12,gasto,35.98,A,Restaurantes/Lanches,ifood,nao_informado,,telegram,alta,padrao_categoria,"35,98 ifood",170#0,2026-08
 38,2026-08-12T19:19:57-04:00,2026-08-12,gasto,70.0,B,Combustível,combustível,nao_informado,,telegram,alta,padrao_categoria,70 combustível,172#0,2026-08
+39,2026-08-13T07:31:12-04:00,2026-08-13,gasto,5.95,A,iFood Club,iFood beneficios,nao_informado,,telegram,alta,padrao_categoria,"5,95 ifood beneficios",178#0,2026-08
