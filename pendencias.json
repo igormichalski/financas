@@ -1,3 +1,17 @@
 {
-  "abertas": []
+  "abertas": [
+    {
+      "id": "88e51da3",
+      "tipo": "recorrente_cobranca",
+      "pergunta": "🔁 YouTube Premium (R$ 26,90) ainda não apareceu esse mês — pagou?",
+      "criada": "2026-08-20T00:00:12-04:00",
+      "msg_id": null,
+      "dados": {
+        "nome": "YouTube Premium",
+        "categoria": "Streaming",
+        "valor": 26.9,
+        "dia_limite": 20
+      }
+    }
+  ]
 }
