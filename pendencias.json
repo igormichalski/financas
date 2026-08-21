@@ -1,15 +1,15 @@
 {
   "abertas": [
     {
-      "id": "88e51da3",
+      "id": "5da81395",
       "tipo": "recorrente_cobranca",
-      "pergunta": "🔁 YouTube Premium (R$ 26,90) ainda não apareceu esse mês — pagou?",
-      "criada": "2026-08-20T00:00:12-04:00",
+      "pergunta": "🔁 Spotify (R$ 23,90) ainda não apareceu esse mês — pagou?",
+      "criada": "2026-08-21T00:30:08-04:00",
       "msg_id": null,
       "dados": {
-        "nome": "YouTube Premium",
+        "nome": "Spotify",
         "categoria": "Streaming",
-        "valor": 26.9,
+        "valor": 23.9,
         "dia_limite": 20
       }
     }

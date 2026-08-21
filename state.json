@@ -1,6 +1,6 @@
 {
   "offset": 887251829,
-  "ultimo_run": "2026-08-20T00:00:12-04:00",
+  "ultimo_run": "2026-08-21T00:30:08-04:00",
   "avisos": {
     "rec-Academia (Iron Gym)-2026-07": "2026-07-25",
     "rec-iFood Club-2026-07": "2026-07-26",
@@ -10,7 +10,8 @@
     "rec-Academia (Iron Gym)-2026-08": "2026-08-15",
     "semana-2026-08-10": "2026-08-18",
     "vence-2026-08-22": "2026-08-20",
-    "rec-YouTube Premium-2026-08": "2026-08-20"
+    "rec-YouTube Premium-2026-08": "2026-08-20",
+    "rec-Spotify-2026-08": "2026-08-21"
   },
   "erros": {
     "rede-Telegram": "2026-07-25T19:47:37-03:00"
