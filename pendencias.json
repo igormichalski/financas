@@ -1,17 +1,3 @@
 {
-  "abertas": [
-    {
-      "id": "5da81395",
-      "tipo": "recorrente_cobranca",
-      "pergunta": "🔁 Spotify (R$ 23,90) ainda não apareceu esse mês — pagou?",
-      "criada": "2026-08-21T00:30:08-04:00",
-      "msg_id": null,
-      "dados": {
-        "nome": "Spotify",
-        "categoria": "Streaming",
-        "valor": 23.9,
-        "dia_limite": 20
-      }
-    }
-  ]
+  "abertas": []
 }
