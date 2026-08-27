@@ -7,8 +7,10 @@ class ErroSistema(Exception):
         self.esperar = esperar
 
 class ErroTemporario(ErroSistema):
+    pass
 
 class ErroPermanente(ErroSistema):
+    pass
 
 def classificar_gemini(codigo: int, corpo: str) -> ErroSistema:
     c = (corpo or '').lower()
